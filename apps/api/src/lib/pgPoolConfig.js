@@ -47,8 +47,12 @@ export async function buildPoolOptions(databaseUrl, overrides = {}) {
   }
 
   const merged = { ...cfg, ...overrides };
+
   const noVerify = process.env.DATABASE_SSL_NO_VERIFY;
-  if (noVerify === '1' || noVerify === 'true') {
+  const isSupabase =
+    typeof host === 'string' &&
+    (host.includes('supabase.co') || host.includes('supabase.com'));
+  if (noVerify === '1' || noVerify === 'true' || isSupabase) {
     const ssl = merged.ssl;
     const base = ssl === true ? {} : typeof ssl === 'object' && ssl !== null ? { ...ssl } : {};
     merged.ssl = { ...base, rejectUnauthorized: false };
