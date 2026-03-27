@@ -44,7 +44,8 @@ router.post('/request-otp', otpLimiter, async (req, res, next) => {
     const { phone: raw } = otpRequestSchema.parse(req.body);
     const phone = normalizePhone(raw);
     const env = loadEnv();
-    const code = env.DEV_OTP && env.NODE_ENV !== 'production' ? env.DEV_OTP : randomOtp6();
+    const useDevOtp = env.DEV_OTP && (env.NODE_ENV !== 'production' || process.env.FORCE_DEV_OTP === '1');
+    const code = useDevOtp ? env.DEV_OTP : randomOtp6();
     const hash = await bcrypt.hash(code, 10);
     const pool = getPool();
     await pool.query(
@@ -52,13 +53,13 @@ router.post('/request-otp', otpLimiter, async (req, res, next) => {
        VALUES ($1, $2, now() + interval '5 minutes')`,
       [phone, hash]
     );
-    if (!env.DEV_OTP || env.NODE_ENV === 'production') {
+    if (!useDevOtp) {
       await sendSms(phone, `Your AutoHub code is ${code}. It expires in 5 minutes.`);
     } else {
       console.info('[dev-otp]', phone, code);
     }
     res.status(200).json({
-      data: { sent: true, ...(env.DEV_OTP && env.NODE_ENV !== 'production' ? { devCode: code } : {}) },
+      data: { sent: true, ...(useDevOtp ? { devCode: code } : {}) },
     });
   } catch (e) {
     next(e);

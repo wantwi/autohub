@@ -109,7 +109,7 @@ export function HomePage() {
                 Browse Parts
               </Link>
             </Button>
-            <Button asChild size="lg" variant="outline" className="gap-2 border-white/20 text-white hover:bg-white/10 hover:text-white">
+            <Button asChild size="lg" variant="ghost" className="gap-2 border border-white/20 !text-white hover:bg-white/10">
               <Link to="/services">
                 <Wrench className="h-4 w-4" aria-hidden />
                 Find a Technician

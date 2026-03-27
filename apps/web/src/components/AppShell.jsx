@@ -28,6 +28,45 @@ import { subscribeToPush, isPushSubscribed, hasDismissedPushPrompt, dismissPushP
 import { Button } from '@/components/ui/button'
 import { ThemePicker } from '@/components/ThemePicker'
 
+function IosPwaPrompt() {
+  const [visible, setVisible] = useState(false)
+
+  useEffect(() => {
+    const isIos = /iphone|ipad|ipod/i.test(navigator.userAgent)
+    const isInStandalone = window.matchMedia('(display-mode: standalone)').matches || navigator.standalone
+    const dismissed = localStorage.getItem('autohub-ios-pwa-dismissed')
+    if (isIos && !isInStandalone && !dismissed) {
+      const timer = setTimeout(() => setVisible(true), 2000)
+      return () => clearTimeout(timer)
+    }
+  }, [])
+
+  if (!visible) return null
+
+  return (
+    <div className="mb-4 animate-fade-in-up rounded-xl border border-sky-200/60 bg-sky-50/80 p-3 shadow-sm dark:border-sky-800/40 dark:bg-sky-950/30">
+      <div className="flex items-start gap-3">
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-sky-600 text-white text-lg">
+          +
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">Install AutoHub</p>
+          <p className="mt-0.5 text-xs text-slate-600 dark:text-slate-400">
+            Tap the <strong>Share</strong> button <span className="inline-block translate-y-px text-base leading-none">&#x2191;&#xFE0E;</span> in Safari, then choose <strong>"Add to Home Screen"</strong> for the best experience.
+          </p>
+          <button
+            type="button"
+            onClick={() => { localStorage.setItem('autohub-ios-pwa-dismissed', '1'); setVisible(false) }}
+            className="mt-2 rounded-lg px-3 py-1 text-xs font-medium text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
+          >
+            Dismiss
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function PushPromptBanner() {
   const user = useAuthStore((s) => s.user)
   const [visible, setVisible] = useState(false)
@@ -170,7 +209,7 @@ export function AppShell() {
     .toUpperCase()
 
   return (
-    <div className="min-h-dvh bg-slate-50 pb-20 sm:pb-0 dark:bg-slate-950">
+    <div className="min-h-dvh bg-slate-50 pb-[calc(5rem+env(safe-area-inset-bottom))] sm:pb-0 dark:bg-slate-950">
       {/* Header */}
       <header className="sticky top-0 z-40 border-b border-slate-200/80 bg-white/80 backdrop-blur-xl dark:border-slate-700/80 dark:bg-slate-900/80">
         <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-3 lg:px-6">
@@ -388,13 +427,14 @@ export function AppShell() {
 
         {/* Main content with page transition */}
         <main className="min-w-0 flex-1 animate-fade-in-up">
+          <IosPwaPrompt />
           <PushPromptBanner />
           <Outlet />
         </main>
       </div>
 
       {/* Mobile bottom nav */}
-      <nav className="fixed bottom-0 left-0 right-0 z-40 border-t border-slate-200/80 bg-white/90 backdrop-blur-xl md:hidden dark:border-slate-700/80 dark:bg-slate-900/90">
+      <nav className="fixed bottom-0 left-0 right-0 z-40 border-t border-slate-200/80 bg-white/90 pb-[env(safe-area-inset-bottom)] backdrop-blur-xl md:hidden dark:border-slate-700/80 dark:bg-slate-900/90">
         <div className="mx-auto flex max-w-lg justify-around px-1 py-1.5">
           {isAdmin ? (
             <>
