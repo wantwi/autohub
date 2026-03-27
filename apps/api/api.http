@@ -1,0 +1,21 @@
+### Health
+GET http://localhost:3000/v1/health
+
+### Request OTP (use DEV_OTP in .env for local)
+POST http://localhost:3000/v1/auth/request-otp
+Content-Type: application/json
+
+{"phone": "+233200000002"}
+
+### Verify OTP
+POST http://localhost:3000/v1/auth/verify-otp
+Content-Type: application/json
+
+{"phone": "+233200000002", "code": "123456", "fullName": "Kofi Buyer"}
+
+### Me (replace TOKEN)
+GET http://localhost:3000/v1/auth/me
+Authorization: Bearer TOKEN
+
+### Search parts
+GET http://localhost:3000/v1/parts?q=alt&make=Toyota&year=2015&sort=price_asc

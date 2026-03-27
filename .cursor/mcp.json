@@ -1,0 +1,7 @@
+{
+  "mcpServers": {
+    "supabase": {
+      "url": "https://mcp.supabase.com/mcp?project_ref=uwpcspqjsvhazctrgklg&features=database%2Cdocs%2Cdevelopment%2Cstorage%2Cfunctions%2Cdebugging"
+    }
+  }
+}

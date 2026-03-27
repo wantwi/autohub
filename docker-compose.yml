@@ -1,0 +1,53 @@
+# Full stack: Postgres (schema auto-applies on first data volume) + API.
+# From repo root:
+#   docker compose up --build -d
+# Then open http://localhost:3000/v1/health — database should be "connected".
+#
+# Fresh DB (re-run init SQL): docker compose down -v && docker compose up --build -d
+#
+# Windows: If you see "dockerDesktopLinuxEngine" / "The system cannot find the file specified":
+#   → Start Docker Desktop and wait until it says "Engine running", then retry.
+#   → If Docker isn't installed: https://docs.docker.com/desktop/install/windows-install/
+#   → Without Docker: use Supabase for Postgres + set DATABASE_URL in apps/api/.env and npm run dev
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: autohub-postgres
+    restart: unless-stopped
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: autohub
+    volumes:
+      - autohub_pgdata:/var/lib/postgresql/data
+      - ./supabase/migrations/20250323120000_init.sql:/docker-entrypoint-initdb.d/01-autohub.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d autohub"]
+      interval: 3s
+      timeout: 5s
+      retries: 20
+      start_period: 15s
+
+  api:
+    build:
+      context: ./apps/api
+      dockerfile: Dockerfile
+    container_name: autohub-api
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/autohub
+      JWT_SECRET: ${JWT_SECRET:-autohub-docker-dev-jwt-secret-min-32}
+      PORT: "3000"
+      HOST: "0.0.0.0"
+      CORS_ORIGINS: http://localhost:5173,http://localhost:5176,http://127.0.0.1:5173,http://127.0.0.1:5176
+      DEV_OTP: "123456"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  autohub_pgdata:
