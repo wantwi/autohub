@@ -1,5 +1,6 @@
 import { createElement, useEffect, useState } from 'react'
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom'
+import { useQuery } from '@tanstack/react-query'
 import {
   Bell,
   Boxes,
@@ -12,6 +13,7 @@ import {
   LogOut,
   Menu,
   MessageCircle,
+  MessageSquareText,
   CalendarClock,
   Package,
   Search,
@@ -25,6 +27,7 @@ import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/stores/authStore'
 import { useChatUnread } from '@/providers/ChatProvider'
 import { subscribeToPush, isPushSubscribed, hasDismissedPushPrompt, dismissPushPrompt } from '@/lib/pushSubscription'
+import { apiJson } from '@/lib/api'
 import { Button } from '@/components/ui/button'
 import { ThemePicker } from '@/components/ThemePicker'
 
@@ -225,6 +228,13 @@ export function AppShell() {
   const isTechnician = user?.role === 'technician'
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const chatUnread = useChatUnread()
+  const notifQ = useQuery({
+    queryKey: ['notifications-unread'],
+    queryFn: () => apiJson('/notifications/unread-count'),
+    enabled: !!user,
+    refetchInterval: 30000,
+  })
+  const notifUnread = notifQ.data?.data?.count || 0
 
   const hideChrome = location.pathname.startsWith('/login')
   if (hideChrome) {
@@ -286,6 +296,19 @@ export function AppShell() {
 
           <div className="flex items-center gap-2">
             <ThemePicker />
+            {user && (
+              <Link
+                to="/notifications"
+                className="relative rounded-lg p-2 text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-700 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-200"
+              >
+                <Bell className="h-5 w-5" />
+                {notifUnread > 0 && (
+                  <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white">
+                    {notifUnread > 99 ? '99+' : notifUnread}
+                  </span>
+                )}
+              </Link>
+            )}
             {user ? (
               <div className="hidden items-center gap-3 md:flex">
                 <div className="flex items-center gap-2.5 rounded-full bg-slate-100 py-1.5 pl-1.5 pr-4 dark:bg-slate-800">
@@ -358,6 +381,7 @@ export function AppShell() {
                       <MobileLink to="/dashboard" icon={LayoutDashboard} label="Dashboard" onClick={() => setMobileMenuOpen(false)} />
                       <MobileLink to="/bookings" icon={CalendarClock} label="Bookings" onClick={() => setMobileMenuOpen(false)} />
                       <MobileLink to="/messages" icon={MessageCircle} label={`Messages${chatUnread > 0 ? ` (${chatUnread})` : ''}`} onClick={() => setMobileMenuOpen(false)} />
+                      <MobileLink to="/feedback" icon={MessageSquareText} label="Send Feedback" onClick={() => setMobileMenuOpen(false)} />
                     </>
                   )}
                 </>
@@ -469,6 +493,14 @@ export function AppShell() {
           <PwaInstallPrompt />
           <PushPromptBanner />
           <Outlet />
+          <footer className="mt-12 border-t border-slate-200/60 pb-4 pt-6 dark:border-slate-800">
+            <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-[11px] text-slate-400 dark:text-slate-500">
+              <span>&copy; {new Date().getFullYear()} AutoHub Ghana</span>
+              <Link to="/terms" className="hover:text-slate-600 dark:hover:text-slate-300">Terms</Link>
+              <Link to="/privacy" className="hover:text-slate-600 dark:hover:text-slate-300">Privacy</Link>
+              {user && <Link to="/feedback" className="hover:text-slate-600 dark:hover:text-slate-300">Feedback</Link>}
+            </div>
+          </footer>
         </main>
       </div>
 

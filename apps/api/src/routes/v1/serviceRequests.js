@@ -6,6 +6,7 @@ import { HttpError } from '../../lib/httpError.js';
 import { keysToCamel } from '../../lib/format.js';
 import { parsePagination } from '../../lib/pagination.js';
 import { sendPushToUser } from '../../services/pushNotify.js';
+import { createNotification } from '../../services/notifyInApp.js';
 
 const router = Router();
 
@@ -73,6 +74,12 @@ router.post('/', requireAuth, async (req, res, next) => {
       title: 'New Booking',
       body: `${buyerName} sent you a service request.`,
       url: '/technician/requests',
+    }).catch(() => {});
+    createNotification(tech.user_id, {
+      type: 'booking_new',
+      title: 'New Booking Request',
+      body: `${buyerName} sent you a service request.`,
+      link: '/technician/requests',
     }).catch(() => {});
   } catch (e) {
     next(e);
@@ -209,11 +216,23 @@ router.patch('/:id/status', requireAuth, async (req, res, next) => {
         body: `${techName} ${label} your service request.`,
         url: '/bookings',
       }).catch(() => {});
+      createNotification(sr.buyer_id, {
+        type: `booking_${body.status}`,
+        title: 'Booking Update',
+        body: `${techName} ${label} your service request.`,
+        link: '/bookings',
+      }).catch(() => {});
     } else if (body.status === 'cancelled') {
       sendPushToUser(techUserId, {
         title: 'Booking Cancelled',
         body: `A buyer cancelled their service request.`,
         url: '/technician/requests',
+      }).catch(() => {});
+      createNotification(techUserId, {
+        type: 'booking_cancelled',
+        title: 'Booking Cancelled',
+        body: 'A buyer cancelled their service request.',
+        link: '/technician/requests',
       }).catch(() => {});
     }
   } catch (e) {

@@ -57,6 +57,12 @@ const TechnicianRequestsPage = lazy(() =>
 const BuyerBookingsPage = lazy(() =>
   import('@/pages/BuyerBookingsPage').then((m) => ({ default: m.BuyerBookingsPage })),
 )
+const NotificationsPage = lazy(() =>
+  import('@/pages/NotificationsPage').then((m) => ({ default: m.NotificationsPage })),
+)
+const TermsPage = lazy(() => import('@/pages/TermsPage').then((m) => ({ default: m.TermsPage })))
+const PrivacyPage = lazy(() => import('@/pages/PrivacyPage').then((m) => ({ default: m.PrivacyPage })))
+const FeedbackPage = lazy(() => import('@/pages/FeedbackPage').then((m) => ({ default: m.FeedbackPage })))
 const NotFoundPage = lazy(() => import('@/pages/NotFoundPage').then((m) => ({ default: m.NotFoundPage })))
 
 function SuspenseFallback() {
@@ -80,6 +86,8 @@ export default function App() {
           <Route path="services" element={<TechniciansPage />} />
           <Route path="services/:id" element={<TechnicianProfilePage />} />
           <Route path="login" element={<AuthPage />} />
+          <Route path="terms" element={<TermsPage />} />
+          <Route path="privacy" element={<PrivacyPage />} />
 
           <Route
             path="dashboard"
@@ -94,6 +102,22 @@ export default function App() {
             element={
               <ProtectedRoute>
                 <ProfilePage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="notifications"
+            element={
+              <ProtectedRoute>
+                <NotificationsPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="feedback"
+            element={
+              <ProtectedRoute>
+                <FeedbackPage />
               </ProtectedRoute>
             }
           />

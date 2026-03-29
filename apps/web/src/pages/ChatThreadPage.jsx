@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { ArrowLeft, CheckCheck, Loader2, Package, Send, X } from 'lucide-react'
+import { ArrowLeft, CheckCheck, Flag, Loader2, Package, Send, X } from 'lucide-react'
 import { toast } from 'sonner'
 import { apiJson } from '@/lib/api'
 import { useAuthStore } from '@/stores/authStore'
@@ -13,6 +13,7 @@ import { AttachmentPreviewModal } from '@/components/chat/AttachmentPreviewModal
 import { VoiceRecorder } from '@/components/chat/VoiceRecorder'
 import { MessageContent, hasMediaAttachment } from '@/components/chat/MessageContent'
 import { ReactionPicker } from '@/components/chat/ReactionPicker'
+import { ReportDialog } from '@/components/chat/ReportDialog'
 import { cn } from '@/lib/utils'
 
 const LIGHT_BG = '#efeae2'
@@ -121,6 +122,7 @@ export function ChatThreadPage({ conversationId: propId, embedded = false, onBac
   const [recording, setRecording] = useState(false)
   const [voiceStream, setVoiceStream] = useState(null)
   const [mediaPreview, setMediaPreview] = useState(null)
+  const [showReport, setShowReport] = useState(false)
   const [replyTo, setReplyTo] = useState(null)
   const messagesEndRef = useRef(null)
   const scrollContainerRef = useRef(null)
@@ -299,6 +301,9 @@ export function ChatThreadPage({ conversationId: propId, embedded = false, onBac
   const otherName = (isDealerSide || isTechSide)
     ? (conv?.buyerName || 'Buyer')
     : (conv?.dealerShopName || conv?.technicianDisplayName || 'Contact')
+  const otherUserId = (isDealerSide || isTechSide)
+    ? conv?.buyerId
+    : (conv?.dealerUserId || conv?.technicianUserId)
 
   const groups = groupByDate(allMessages)
 
@@ -334,7 +339,23 @@ export function ChatThreadPage({ conversationId: propId, embedded = false, onBac
             </div>
           )}
         </div>
+        <button
+          type="button"
+          onClick={() => setShowReport(true)}
+          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-slate-400 transition-colors hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-950/30 dark:hover:text-red-400"
+          title="Report user"
+        >
+          <Flag className="h-4 w-4" />
+        </button>
       </div>
+
+      {showReport && otherUserId && (
+        <ReportDialog
+          reportedUserId={otherUserId}
+          conversationId={conversationId}
+          onClose={() => setShowReport(false)}
+        />
+      )}
 
       {/* Media preview replaces chat area when active */}
       {mediaPreview ? (

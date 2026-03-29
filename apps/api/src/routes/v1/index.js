@@ -12,6 +12,10 @@ import imagesRouter from './images.js';
 import chatRouter from './chat.js';
 import serviceRequestsRouter from './serviceRequests.js';
 import pushRouter from './push.js';
+import notificationsRouter from './notifications.js';
+import reportsRouter from './reports.js';
+import feedbackRouter from './feedback.js';
+import analyticsRouter from './analytics.js';
 
 const router = Router();
 
@@ -94,5 +98,9 @@ router.use('/images', imagesRouter);
 router.use('/conversations', chatRouter);
 router.use('/service-requests', serviceRequestsRouter);
 router.use('/push', pushRouter);
+router.use('/notifications', notificationsRouter);
+router.use('/reports', reportsRouter);
+router.use('/feedback', feedbackRouter);
+router.use('/analytics', analyticsRouter);
 
 export default router;
