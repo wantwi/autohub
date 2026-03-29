@@ -1,5 +1,5 @@
 import { useCallback, useRef, useState } from 'react'
-import { Play, Pause, FileText, Download, X, ShoppingBag, ExternalLink, MapPin, Loader2 } from 'lucide-react'
+import { Play, Pause, FileText, Download, X, ShoppingBag, ExternalLink, MapPin, Loader2, CheckCheck } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { cn } from '@/lib/utils'
 
@@ -31,7 +31,7 @@ const EXT_BADGE = {
   txt: { label: 'TXT', bg: 'bg-slate-500' },
 }
 
-function ImageBubble({ url, caption, time }) {
+function ImageBubble({ url, caption, time, isMine, isRead }) {
   const [lightbox, setLightbox] = useState(false)
 
   return (
@@ -45,8 +45,9 @@ function ImageBubble({ url, caption, time }) {
             loading="lazy"
           />
           {!caption && (
-            <div className="absolute bottom-1 right-1 rounded bg-black/40 px-1.5 py-0.5 backdrop-blur-sm">
+            <div className="absolute bottom-1 right-1 flex items-center gap-1 rounded bg-black/40 px-1.5 py-0.5 backdrop-blur-sm">
               <span className="text-[10px] text-white">{time}</span>
+              {isMine && <CheckCheck className={cn('h-3.5 w-3.5', isRead ? 'text-purple-400' : 'text-white/70')} />}
             </div>
           )}
         </div>
@@ -75,7 +76,7 @@ function ImageBubble({ url, caption, time }) {
   )
 }
 
-function VideoBubble({ url, caption, time }) {
+function VideoBubble({ url, caption, time, isMine, isRead }) {
   const [playing, setPlaying] = useState(false)
   const videoRef = useRef(null)
   const posterUrl = url.replace(/\.[^.]+$/, '.jpg')
@@ -107,8 +108,9 @@ function VideoBubble({ url, caption, time }) {
               </button>
             </div>
             {!caption && (
-              <div className="absolute bottom-1 right-1 rounded bg-black/40 px-1.5 py-0.5 backdrop-blur-sm">
+              <div className="absolute bottom-1 right-1 flex items-center gap-1 rounded bg-black/40 px-1.5 py-0.5 backdrop-blur-sm">
                 <span className="text-[10px] text-white">{time}</span>
+                {isMine && <CheckCheck className={cn('h-3.5 w-3.5', isRead ? 'text-purple-400' : 'text-white/70')} />}
               </div>
             )}
           </>
@@ -383,8 +385,8 @@ export function ReplyQuote({ replyTo, onScrollTo }) {
   )
 }
 
-export function MessageContent({ msg, onScrollToMessage }) {
-  const { attachmentUrl, attachmentType, body, createdAt, replyTo, payload } = msg
+export function MessageContent({ msg, onScrollToMessage, isMine }) {
+  const { attachmentUrl, attachmentType, body, createdAt, replyTo, payload, isRead } = msg
   const time = timeStr(createdAt)
   const isPartCard = attachmentType === 'part_card'
   const locationData = extractGoogleMapsUrl(body)
@@ -404,10 +406,10 @@ export function MessageContent({ msg, onScrollToMessage }) {
         <LocationBubble lat={locationData.lat} lng={locationData.lng} url={locationData.url} />
       )}
       {attachmentUrl && attachmentType === 'image' && (
-        <ImageBubble url={attachmentUrl} caption={body} time={time} />
+        <ImageBubble url={attachmentUrl} caption={body} time={time} isMine={isMine} isRead={isRead} />
       )}
       {attachmentUrl && attachmentType === 'video' && (
-        <VideoBubble url={attachmentUrl} caption={body} time={time} />
+        <VideoBubble url={attachmentUrl} caption={body} time={time} isMine={isMine} isRead={isRead} />
       )}
       {attachmentUrl && attachmentType === 'audio' && (
         <AudioBubble url={attachmentUrl} />

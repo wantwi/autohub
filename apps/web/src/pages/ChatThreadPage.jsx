@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { ArrowLeft, Loader2, Package, Send, X } from 'lucide-react'
+import { ArrowLeft, CheckCheck, Loader2, Package, Send, X } from 'lucide-react'
 import { toast } from 'sonner'
 import { apiJson } from '@/lib/api'
 import { useAuthStore } from '@/stores/authStore'
@@ -46,6 +46,13 @@ function dateLabel(dateStr) {
 
 function timeStr(dateStr) {
   return new Date(dateStr).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })
+}
+
+function MessageTicks({ isRead }) {
+  if (isRead) {
+    return <CheckCheck className="h-[14px] w-[14px] text-purple-500" />
+  }
+  return <CheckCheck className="h-[14px] w-[14px] text-slate-400 dark:text-slate-500" />
 }
 
 function groupByDate(messages) {
@@ -168,6 +175,14 @@ export function ChatThreadPage({ conversationId: propId, embedded = false, onBac
         setTypingUser(data.userId)
         clearTimeout(typingIndicatorTimeout.current)
         typingIndicatorTimeout.current = setTimeout(() => setTypingUser(null), 3000)
+      }
+      if (event === 'messages_read' && data.conversationId === conversationId && data.readBy !== user?.id) {
+        const markAsRead = (m) => (m.senderId === user?.id && !m.isRead) ? { ...m, isRead: true } : m
+        setLocalMessages((prev) => prev.map(markAsRead))
+        qc.setQueryData(['messages', conversationId], (old) => {
+          if (!Array.isArray(old)) return old
+          return old.map(markAsRead)
+        })
       }
       if (event === 'message_reaction' && data.messageId) {
         setLocalMessages((prev) =>
@@ -408,10 +423,11 @@ export function ChatThreadPage({ conversationId: propId, embedded = false, onBac
                                 !isMine && isFirst && 'rounded-tl-none',
                               )}
                             >
-                              <MessageContent msg={msg} onScrollToMessage={scrollToMessage} />
+                              <MessageContent msg={msg} onScrollToMessage={scrollToMessage} isMine={isMine} />
                               {(!isMedia || msg.body) ? (
                                 <span className="float-right ml-3 mt-1 inline-flex items-center gap-1 text-[10.5px] leading-none text-slate-400 dark:text-slate-400">
                                   {timeStr(msg.createdAt)}
+                                  {isMine && <MessageTicks isRead={msg.isRead} />}
                                 </span>
                               ) : null}
                             </div>
