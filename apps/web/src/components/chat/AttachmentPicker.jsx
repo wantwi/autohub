@@ -1,16 +1,16 @@
 import { useRef, useState } from 'react'
-import { FileText, Image, Camera, Mic, Paperclip, X } from 'lucide-react'
+import { FileText, Image, MapPin, Mic, Paperclip, X } from 'lucide-react'
 import { getEnv } from '@/lib/env'
 import { cn } from '@/lib/utils'
 
 const PICKER_OPTIONS = [
   { key: 'document', label: 'Document', icon: FileText, accept: '.pdf,.doc,.docx,.xls,.xlsx,.csv,.txt', resourceType: 'raw', type: 'document', bg: 'bg-indigo-500' },
   { key: 'photo', label: 'Photos & videos', icon: Image, accept: 'image/*,video/*', resourceType: 'auto', type: 'media', bg: 'bg-blue-500' },
-  { key: 'camera', label: 'Camera', icon: Camera, accept: 'image/*', capture: 'environment', resourceType: 'image', type: 'image', bg: 'bg-rose-500' },
+  { key: 'location', label: 'Location', icon: MapPin, type: 'location', bg: 'bg-emerald-500' },
   { key: 'voice', label: 'Audio', icon: Mic, type: 'voice', bg: 'bg-orange-500' },
 ]
 
-export function AttachmentPicker({ onMediaSelect, onDocumentSelect, onVoiceNote, disabled }) {
+export function AttachmentPicker({ onMediaSelect, onDocumentSelect, onVoiceNote, onLocationSelect, disabled }) {
   const [open, setOpen] = useState(false)
   const fileInputRef = useRef(null)
   const pendingOptionRef = useRef(null)
@@ -20,6 +20,17 @@ export function AttachmentPicker({ onMediaSelect, onDocumentSelect, onVoiceNote,
     setOpen(false)
     if (option.key === 'voice') {
       onVoiceNote?.()
+      return
+    }
+    if (option.key === 'location') {
+      if (!navigator.geolocation) return
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          onLocationSelect?.({ lat: pos.coords.latitude, lng: pos.coords.longitude })
+        },
+        (err) => console.error('Geolocation error:', err),
+        { enableHighAccuracy: true, timeout: 10000 },
+      )
       return
     }
     pendingOptionRef.current = option

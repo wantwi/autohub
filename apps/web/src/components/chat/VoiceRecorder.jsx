@@ -11,7 +11,7 @@ function formatTime(seconds) {
 
 const WAVE_BARS = 20
 
-export function VoiceRecorder({ onComplete, onCancel }) {
+export function VoiceRecorder({ onComplete, onCancel, stream: externalStream }) {
   const [phase, setPhase] = useState('recording')
   const [elapsed, setElapsed] = useState(0)
   const [audioBlob, setAudioBlob] = useState(null)
@@ -41,16 +41,19 @@ export function VoiceRecorder({ onComplete, onCancel }) {
     if (audioUrl) URL.revokeObjectURL(audioUrl)
   }, [cleanup, audioUrl])
 
-  const startRecording = async () => {
+  const startRecording = useCallback(async (stream) => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
-      streamRef.current = stream
+      const mediaStream = stream || await navigator.mediaDevices.getUserMedia({ audio: true })
+      streamRef.current = mediaStream
 
-      const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
-        ? 'audio/webm;codecs=opus'
-        : 'audio/webm'
+      const mimeTypes = [
+        'audio/mp4',
+        'audio/webm;codecs=opus',
+        'audio/webm',
+      ]
+      const mimeType = mimeTypes.find((t) => MediaRecorder.isTypeSupported(t)) || ''
 
-      const recorder = new MediaRecorder(stream, { mimeType })
+      const recorder = new MediaRecorder(mediaStream, mimeType ? { mimeType } : undefined)
       mediaRecorderRef.current = recorder
       chunksRef.current = []
 
@@ -59,7 +62,7 @@ export function VoiceRecorder({ onComplete, onCancel }) {
       }
 
       recorder.onstop = () => {
-        const blob = new Blob(chunksRef.current, { type: mimeType })
+        const blob = new Blob(chunksRef.current, { type: recorder.mimeType })
         const url = URL.createObjectURL(blob)
         setAudioBlob(blob)
         setAudioUrl(url)
@@ -74,7 +77,7 @@ export function VoiceRecorder({ onComplete, onCancel }) {
       console.error('Microphone access denied:', err)
       onCancel?.()
     }
-  }
+  }, [onCancel])
 
   const stopRecording = () => {
     clearInterval(timerRef.current)
@@ -102,7 +105,7 @@ export function VoiceRecorder({ onComplete, onCancel }) {
     setAudioUrl(null)
     setPlaying(false)
     setPlayProgress(0)
-    startRecording()
+    startRecording(null)
   }
 
   const togglePlayback = () => {
@@ -128,8 +131,9 @@ export function VoiceRecorder({ onComplete, onCancel }) {
     setPhase('uploading')
 
     try {
+      const ext = audioBlob.type.includes('mp4') ? 'm4a' : 'webm'
       const formData = new FormData()
-      formData.append('file', audioBlob, 'voice-note.webm')
+      formData.append('file', audioBlob, `voice-note.${ext}`)
       formData.append('upload_preset', cloudinaryUploadPreset)
       formData.append('resource_type', 'video')
 
@@ -154,7 +158,7 @@ export function VoiceRecorder({ onComplete, onCancel }) {
   }
 
   useEffect(() => {
-    startRecording()
+    startRecording(externalStream || null)
   }, [])
 
   const filledBars = Math.floor((playProgress / 100) * WAVE_BARS)

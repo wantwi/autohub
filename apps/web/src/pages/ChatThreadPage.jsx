@@ -111,6 +111,7 @@ export function ChatThreadPage({ conversationId: propId, embedded = false, onBac
   const [loadingMore, setLoadingMore] = useState(false)
   const [docAttachment, setDocAttachment] = useState(null)
   const [recording, setRecording] = useState(false)
+  const [voiceStream, setVoiceStream] = useState(null)
   const [mediaPreview, setMediaPreview] = useState(null)
   const [replyTo, setReplyTo] = useState(null)
   const messagesEndRef = useRef(null)
@@ -474,14 +475,16 @@ export function ChatThreadPage({ conversationId: propId, embedded = false, onBac
 
             {recording ? (
               <VoiceRecorder
+                stream={voiceStream}
                 onComplete={async (data) => {
                   setRecording(false)
+                  setVoiceStream(null)
                   try {
                     await doSend(null, data.url, data.type, replyTo?.id || undefined)
                     setReplyTo(null)
                   } catch { /* voice note send failed */ }
                 }}
-                onCancel={() => setRecording(false)}
+                onCancel={() => { setRecording(false); setVoiceStream(null) }}
               />
             ) : (
               <div className="flex items-end gap-2">
@@ -489,7 +492,22 @@ export function ChatThreadPage({ conversationId: propId, embedded = false, onBac
                   disabled={sending}
                   onMediaSelect={(data) => setMediaPreview(data)}
                   onDocumentSelect={(data) => setDocAttachment(data)}
-                  onVoiceNote={() => setRecording(true)}
+                  onVoiceNote={async () => {
+                    try {
+                      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+                      setVoiceStream(stream)
+                      setRecording(true)
+                    } catch (err) {
+                      console.error('Microphone access denied:', err)
+                    }
+                  }}
+                  onLocationSelect={async ({ lat, lng }) => {
+                    const url = `https://www.google.com/maps?q=${lat},${lng}`
+                    try {
+                      await doSend(`📍 Shared location\n${url}`, null, null, replyTo?.id || undefined)
+                      setReplyTo(null)
+                    } catch { /* location send failed */ }
+                  }}
                 />
                 <form
                   onSubmit={(e) => {

@@ -434,7 +434,7 @@ export function AppShell() {
       </div>
 
       {/* Mobile bottom nav */}
-      <nav className="fixed bottom-0 left-0 right-0 z-40 border-t border-slate-200/80 bg-white/90 pb-[env(safe-area-inset-bottom)] backdrop-blur-xl md:hidden dark:border-slate-700/80 dark:bg-slate-900/90">
+      <nav className="fixed bottom-0 left-0 right-0 z-40 border-t border-slate-200/80 bg-white pb-[env(safe-area-inset-bottom)] md:hidden dark:border-slate-700/80 dark:bg-slate-900" style={{ transform: 'translateZ(0)' }}>
         <div className="mx-auto flex max-w-lg justify-around px-1 py-1.5">
           {isAdmin ? (
             <>
