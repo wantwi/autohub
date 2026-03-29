@@ -9,38 +9,82 @@ function urlBase64ToUint8Array(base64String) {
   return arr
 }
 
+async function getVapidKey() {
+  const envKey = import.meta.env.VITE_VAPID_PUBLIC_KEY
+  if (envKey) return envKey
+  const resp = await apiJson('/push/vapid-key')
+  return resp.data?.publicKey || resp.publicKey || null
+}
+
+async function registerSubscriptionOnServer(subscription) {
+  const json = subscription.toJSON()
+  await apiJson('/push/subscribe', {
+    method: 'POST',
+    body: JSON.stringify({ endpoint: json.endpoint, keys: json.keys }),
+  })
+}
+
 export async function subscribeToPush() {
   if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
-    return false
+    throw new Error('Push notifications are not supported on this browser.')
   }
 
   const permission = await Notification.requestPermission()
-  if (permission !== 'granted') return false
+  if (permission === 'denied') {
+    throw new Error('Notification permission was denied. Enable it in browser settings.')
+  }
+  if (permission !== 'granted') {
+    throw new Error('Notification permission was not granted.')
+  }
 
   const registration = await navigator.serviceWorker.ready
-
-  const vapidKey =
-    import.meta.env.VITE_VAPID_PUBLIC_KEY ||
-    (await apiJson('/push/vapid-key').then((r) => r.data?.publicKey || r.publicKey))
-
-  if (!vapidKey) return false
+  const vapidKey = await getVapidKey()
+  if (!vapidKey) throw new Error('Push configuration missing. Please try again later.')
 
   const subscription = await registration.pushManager.subscribe({
     userVisibleOnly: true,
     applicationServerKey: urlBase64ToUint8Array(vapidKey),
   })
 
-  const json = subscription.toJSON()
-  await apiJson('/push/subscribe', {
-    method: 'POST',
-    body: JSON.stringify({
-      endpoint: json.endpoint,
-      keys: json.keys,
-    }),
-  })
+  await registerSubscriptionOnServer(subscription)
 
   localStorage.setItem('autohub-push-subscribed', '1')
   return true
+}
+
+/**
+ * Checks if the browser's actual PushManager subscription is still valid.
+ * If localStorage says subscribed but the real subscription is gone (e.g. after
+ * a service worker update), re-subscribes silently.
+ */
+export async function syncPushSubscription() {
+  if (!('serviceWorker' in navigator) || !('PushManager' in window)) return
+  if (!localStorage.getItem('autohub-push-subscribed')) return
+  if (Notification.permission !== 'granted') {
+    localStorage.removeItem('autohub-push-subscribed')
+    return
+  }
+
+  try {
+    const registration = await navigator.serviceWorker.ready
+    const existing = await registration.pushManager.getSubscription()
+
+    if (existing) {
+      await registerSubscriptionOnServer(existing)
+      return
+    }
+
+    const vapidKey = await getVapidKey()
+    if (!vapidKey) return
+
+    const newSub = await registration.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: urlBase64ToUint8Array(vapidKey),
+    })
+    await registerSubscriptionOnServer(newSub)
+  } catch {
+    localStorage.removeItem('autohub-push-subscribed')
+  }
 }
 
 export async function unsubscribeFromPush() {

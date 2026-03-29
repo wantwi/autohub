@@ -1,6 +1,7 @@
 import { createElement, useEffect, useState } from 'react'
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
+import { toast } from 'sonner'
 import {
   Bell,
   Boxes,
@@ -26,7 +27,7 @@ import {
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/stores/authStore'
 import { useChatUnread } from '@/providers/ChatProvider'
-import { subscribeToPush, isPushSubscribed, hasDismissedPushPrompt, dismissPushPrompt } from '@/lib/pushSubscription'
+import { subscribeToPush, syncPushSubscription, isPushSubscribed, hasDismissedPushPrompt, dismissPushPrompt } from '@/lib/pushSubscription'
 import { apiJson } from '@/lib/api'
 import { Button } from '@/components/ui/button'
 import { ThemePicker } from '@/components/ThemePicker'
@@ -115,6 +116,9 @@ function PushPromptBanner() {
 
   useEffect(() => {
     if (!user) return
+
+    syncPushSubscription().catch(() => {})
+
     if (isPushSubscribed() || hasDismissedPushPrompt()) return
     if (!('Notification' in window) || !('PushManager' in window)) return
     if (Notification.permission === 'denied') return
@@ -125,8 +129,13 @@ function PushPromptBanner() {
   if (!visible) return null
 
   const handleEnable = async () => {
-    setVisible(false)
-    await subscribeToPush().catch(() => {})
+    try {
+      await subscribeToPush()
+      setVisible(false)
+      toast.success('Notifications enabled!')
+    } catch (err) {
+      toast.error(err.message || 'Could not enable notifications.')
+    }
   }
   const handleDismiss = () => {
     dismissPushPrompt()
