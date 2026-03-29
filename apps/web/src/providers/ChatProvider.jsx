@@ -96,7 +96,9 @@ export function ChatProvider({ children }) {
       if (replyToId) {
         payload.replyToId = replyToId
       }
+      const timeout = setTimeout(() => reject(new Error('Server did not respond in time')), 15000)
       socketRef.current.emit('send_message', payload, (resp) => {
+        clearTimeout(timeout)
         if (resp?.error) reject(new Error(resp.error))
         else resolve(resp?.data)
       })

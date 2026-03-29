@@ -483,8 +483,9 @@ export function ChatThreadPage({ conversationId: propId, embedded = false, onBac
                   try {
                     await doSend(null, data.url, data.type, replyTo?.id || undefined)
                     setReplyTo(null)
-                  } catch {
-                    toast.error('Failed to send voice note.')
+                  } catch (err) {
+                    toast.error(`Voice note failed: ${err?.message || 'Unknown error'}`)
+                    console.error('Voice note send error:', err, 'data:', data)
                   }
                 }}
                 onCancel={() => { setRecording(false); setVoiceStream(null) }}
@@ -504,8 +505,8 @@ export function ChatThreadPage({ conversationId: propId, embedded = false, onBac
                     try {
                       await doSend(`📍 Shared location\n${url}`, null, null, replyTo?.id || undefined)
                       setReplyTo(null)
-                    } catch {
-                      toast.error('Failed to send location.')
+                    } catch (err) {
+                      toast.error(`Location failed: ${err?.message || 'Unknown error'}`)
                     }
                   }}
                 />
