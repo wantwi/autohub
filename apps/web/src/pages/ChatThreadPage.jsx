@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { ArrowLeft, Loader2, Package, Send, X } from 'lucide-react'
+import { toast } from 'sonner'
 import { apiJson } from '@/lib/api'
 import { useAuthStore } from '@/stores/authStore'
 import { useChatContext } from '@/providers/ChatProvider'
@@ -482,7 +483,9 @@ export function ChatThreadPage({ conversationId: propId, embedded = false, onBac
                   try {
                     await doSend(null, data.url, data.type, replyTo?.id || undefined)
                     setReplyTo(null)
-                  } catch { /* voice note send failed */ }
+                  } catch {
+                    toast.error('Failed to send voice note.')
+                  }
                 }}
                 onCancel={() => { setRecording(false); setVoiceStream(null) }}
               />
@@ -501,7 +504,9 @@ export function ChatThreadPage({ conversationId: propId, embedded = false, onBac
                     try {
                       await doSend(`📍 Shared location\n${url}`, null, null, replyTo?.id || undefined)
                       setReplyTo(null)
-                    } catch { /* location send failed */ }
+                    } catch {
+                      toast.error('Failed to send location.')
+                    }
                   }}
                 />
                 <form

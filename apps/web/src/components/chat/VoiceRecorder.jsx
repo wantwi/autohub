@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Mic, Square, X, Loader2, Play, Pause, Send, RotateCcw } from 'lucide-react'
+import { toast } from 'sonner'
 import { getEnv } from '@/lib/env'
 import { cn } from '@/lib/utils'
 
@@ -74,7 +75,8 @@ export function VoiceRecorder({ onComplete, onCancel, stream: externalStream }) 
       setElapsed(0)
       timerRef.current = setInterval(() => setElapsed((p) => p + 1), 1000)
     } catch (err) {
-      console.error('Microphone access denied:', err)
+      console.error('Recording failed:', err)
+      toast.error('Could not start recording. Check microphone permissions.')
       onCancel?.()
     }
   }, [onCancel])
@@ -124,18 +126,22 @@ export function VoiceRecorder({ onComplete, onCancel, stream: externalStream }) 
 
     const { cloudinaryCloudName, cloudinaryUploadPreset } = getEnv()
     if (!cloudinaryCloudName || !cloudinaryUploadPreset) {
-      console.error('Cloudinary config missing')
+      toast.error('Upload configuration missing.')
       return
     }
 
     setPhase('uploading')
 
     try {
-      const ext = audioBlob.type.includes('mp4') ? 'm4a' : 'webm'
+      const blobType = audioBlob.type || ''
+      const ext = blobType.includes('mp4') || blobType.includes('m4a') ? 'm4a'
+        : blobType.includes('aac') ? 'aac'
+        : blobType.includes('ogg') ? 'ogg'
+        : 'webm'
+
       const formData = new FormData()
       formData.append('file', audioBlob, `voice-note.${ext}`)
       formData.append('upload_preset', cloudinaryUploadPreset)
-      formData.append('resource_type', 'video')
 
       const res = await fetch(
         `https://api.cloudinary.com/v1_1/${cloudinaryCloudName}/video/upload`,
@@ -150,9 +156,14 @@ export function VoiceRecorder({ onComplete, onCancel, stream: externalStream }) 
           name: 'Voice note',
           duration: Math.round(data.duration || elapsed),
         })
+      } else {
+        console.error('Cloudinary response:', data)
+        toast.error(data.error?.message || 'Voice note upload failed.')
+        setPhase('preview')
       }
     } catch (err) {
       console.error('Voice note upload failed:', err)
+      toast.error('Voice note upload failed. Check your connection.')
       setPhase('preview')
     }
   }
