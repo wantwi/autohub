@@ -1,5 +1,5 @@
 import { useCallback, useRef, useState } from 'react'
-import { Play, Pause, FileText, Download, X, ShoppingBag, ExternalLink } from 'lucide-react'
+import { Play, Pause, FileText, Download, X, ShoppingBag, ExternalLink, MapPin } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { cn } from '@/lib/utils'
 
@@ -272,6 +272,41 @@ function PartCardBubble({ payload }) {
   )
 }
 
+function extractGoogleMapsUrl(text) {
+  if (!text) return null
+  const match = text.match(/https:\/\/www\.google\.com\/maps\?q=([-\d.]+),([-\d.]+)/)
+  if (!match) return null
+  return { lat: match[1], lng: match[2], url: match[0] }
+}
+
+function LocationBubble({ lat, lng, url }) {
+  const staticMap = `https://maps.googleapis.com/maps/api/staticmap?center=${lat},${lng}&zoom=15&size=280x160&markers=color:red%7C${lat},${lng}&key=`
+
+  return (
+    <a
+      href={url}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="-mx-2.5 -mt-1.5 block overflow-hidden transition-opacity hover:opacity-90"
+    >
+      <div className="relative flex h-32 w-full max-w-[280px] items-center justify-center rounded-md bg-emerald-50 dark:bg-emerald-900/30">
+        <div className="flex flex-col items-center gap-1">
+          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-emerald-500 text-white shadow">
+            <MapPin className="h-5 w-5" />
+          </div>
+          <span className="text-xs font-medium text-emerald-700 dark:text-emerald-300">Shared location</span>
+          <span className="text-[10px] text-slate-500 dark:text-slate-400">{Number(lat).toFixed(4)}, {Number(lng).toFixed(4)}</span>
+        </div>
+      </div>
+      <div className="flex items-center gap-2 bg-gradient-to-r from-emerald-50 to-emerald-100 px-3 py-2 dark:from-emerald-900/40 dark:to-emerald-800/30">
+        <MapPin className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
+        <span className="text-xs font-medium text-emerald-700 dark:text-emerald-300">Open in Google Maps</span>
+        <ExternalLink className="ml-auto h-3 w-3 text-emerald-500" />
+      </div>
+    </a>
+  )
+}
+
 function timeStr(dateStr) {
   return new Date(dateStr).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })
 }
@@ -314,7 +349,8 @@ export function MessageContent({ msg, onScrollToMessage }) {
   const { attachmentUrl, attachmentType, body, createdAt, replyTo, payload } = msg
   const time = timeStr(createdAt)
   const isPartCard = attachmentType === 'part_card'
-  const hasMedia = (attachmentUrl && (attachmentType === 'image' || attachmentType === 'video')) || isPartCard
+  const locationData = extractGoogleMapsUrl(body)
+  const hasMedia = (attachmentUrl && (attachmentType === 'image' || attachmentType === 'video')) || isPartCard || locationData
 
   return (
     <>
@@ -325,6 +361,9 @@ export function MessageContent({ msg, onScrollToMessage }) {
       )}
       {isPartCard && (
         <PartCardBubble payload={payload} />
+      )}
+      {locationData && (
+        <LocationBubble lat={locationData.lat} lng={locationData.lng} url={locationData.url} />
       )}
       {attachmentUrl && attachmentType === 'image' && (
         <ImageBubble url={attachmentUrl} caption={body} time={time} />
@@ -338,7 +377,7 @@ export function MessageContent({ msg, onScrollToMessage }) {
       {attachmentUrl && attachmentType === 'document' && (
         <DocumentBubble url={attachmentUrl} />
       )}
-      {body && (
+      {body && !locationData && (
         <span className={cn('whitespace-pre-wrap break-words', hasMedia && 'mt-1 block px-2.5 pb-0.5')}>{body}</span>
       )}
     </>
