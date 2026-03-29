@@ -28,39 +28,78 @@ import { subscribeToPush, isPushSubscribed, hasDismissedPushPrompt, dismissPushP
 import { Button } from '@/components/ui/button'
 import { ThemePicker } from '@/components/ThemePicker'
 
-function IosPwaPrompt() {
+let deferredInstallPrompt = null
+if (typeof window !== 'undefined') {
+  window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault()
+    deferredInstallPrompt = e
+  })
+}
+
+function PwaInstallPrompt() {
   const [visible, setVisible] = useState(false)
+  const [isIos, setIsIos] = useState(false)
 
   useEffect(() => {
-    const isIos = /iphone|ipad|ipod/i.test(navigator.userAgent)
     const isInStandalone = window.matchMedia('(display-mode: standalone)').matches || navigator.standalone
-    const dismissed = localStorage.getItem('autohub-ios-pwa-dismissed')
-    if (isIos && !isInStandalone && !dismissed) {
+    const dismissed = localStorage.getItem('autohub-pwa-install-dismissed')
+    if (isInStandalone || dismissed) return
+
+    const iosDevice = /iphone|ipad|ipod/i.test(navigator.userAgent)
+    setIsIos(iosDevice)
+
+    if (iosDevice || deferredInstallPrompt) {
       const timer = setTimeout(() => setVisible(true), 2000)
       return () => clearTimeout(timer)
     }
+
+    const handler = () => { setVisible(true) }
+    window.addEventListener('beforeinstallprompt', handler)
+    return () => window.removeEventListener('beforeinstallprompt', handler)
   }, [])
 
   if (!visible) return null
 
+  const dismiss = () => {
+    localStorage.setItem('autohub-pwa-install-dismissed', '1')
+    setVisible(false)
+  }
+
+  const handleInstall = async () => {
+    if (!deferredInstallPrompt) return
+    deferredInstallPrompt.prompt()
+    const { outcome } = await deferredInstallPrompt.userChoice
+    if (outcome === 'accepted') setVisible(false)
+    deferredInstallPrompt = null
+  }
+
   return (
     <div className="mb-4 animate-fade-in-up rounded-xl border border-sky-200/60 bg-sky-50/80 p-3 shadow-sm dark:border-sky-800/40 dark:bg-sky-950/30">
       <div className="flex items-start gap-3">
-        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-sky-600 text-white text-lg">
-          +
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-sky-600 text-white">
+          <Car className="h-4 w-4" />
         </div>
         <div className="min-w-0 flex-1">
           <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">Install AutoHub</p>
-          <p className="mt-0.5 text-xs text-slate-600 dark:text-slate-400">
-            Tap the <strong>Share</strong> button <span className="inline-block translate-y-px text-base leading-none">&#x2191;&#xFE0E;</span> in Safari, then choose <strong>"Add to Home Screen"</strong> for the best experience.
-          </p>
-          <button
-            type="button"
-            onClick={() => { localStorage.setItem('autohub-ios-pwa-dismissed', '1'); setVisible(false) }}
-            className="mt-2 rounded-lg px-3 py-1 text-xs font-medium text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
-          >
-            Dismiss
-          </button>
+          {isIos ? (
+            <p className="mt-0.5 text-xs text-slate-600 dark:text-slate-400">
+              Tap the <strong>Share</strong> button <span className="inline-block translate-y-px text-base leading-none">&#x2191;&#xFE0E;</span> at the bottom of Safari, then tap <strong>&quot;Add to Home Screen&quot;</strong>.
+            </p>
+          ) : (
+            <p className="mt-0.5 text-xs text-slate-600 dark:text-slate-400">
+              Add AutoHub to your home screen for faster access and offline support.
+            </p>
+          )}
+          <div className="mt-2 flex gap-2">
+            {!isIos && deferredInstallPrompt && (
+              <button type="button" onClick={handleInstall} className="rounded-lg bg-sky-600 px-3 py-1 text-xs font-medium text-white shadow-sm hover:bg-sky-700">
+                Install
+              </button>
+            )}
+            <button type="button" onClick={dismiss} className="rounded-lg px-3 py-1 text-xs font-medium text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200">
+              Not now
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -427,7 +466,7 @@ export function AppShell() {
 
         {/* Main content with page transition */}
         <main className="min-w-0 flex-1 animate-fade-in-up">
-          <IosPwaPrompt />
+          <PwaInstallPrompt />
           <PushPromptBanner />
           <Outlet />
         </main>

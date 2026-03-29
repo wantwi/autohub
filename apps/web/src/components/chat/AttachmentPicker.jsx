@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react'
-import { FileText, Image, MapPin, Mic, Paperclip, X } from 'lucide-react'
+import { FileText, Image, Loader2, MapPin, Mic, Paperclip, X } from 'lucide-react'
+import { toast } from 'sonner'
 import { getEnv } from '@/lib/env'
 import { cn } from '@/lib/utils'
 
@@ -15,24 +16,41 @@ export function AttachmentPicker({ onMediaSelect, onDocumentSelect, onVoiceNote,
   const fileInputRef = useRef(null)
   const pendingOptionRef = useRef(null)
   const [uploading, setUploading] = useState(false)
+  const [locating, setLocating] = useState(false)
 
-  const handleOptionClick = (option) => {
+  const handleOptionClick = async (option) => {
     setOpen(false)
+
     if (option.key === 'voice') {
-      onVoiceNote?.()
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+        onVoiceNote?.(stream)
+      } catch {
+        toast.error('Microphone access denied. Check your browser permissions.')
+      }
       return
     }
+
     if (option.key === 'location') {
-      if (!navigator.geolocation) return
+      if (!navigator.geolocation) {
+        toast.error('Location is not supported on this device.')
+        return
+      }
+      setLocating(true)
       navigator.geolocation.getCurrentPosition(
         (pos) => {
+          setLocating(false)
           onLocationSelect?.({ lat: pos.coords.latitude, lng: pos.coords.longitude })
         },
-        (err) => console.error('Geolocation error:', err),
-        { enableHighAccuracy: true, timeout: 10000 },
+        () => {
+          setLocating(false)
+          toast.error('Could not get your location. Check your location permissions.')
+        },
+        { enableHighAccuracy: true, timeout: 15000 },
       )
       return
     }
+
     pendingOptionRef.current = option
     const input = fileInputRef.current
     input.accept = option.accept
@@ -100,17 +118,24 @@ export function AttachmentPicker({ onMediaSelect, onDocumentSelect, onVoiceNote,
         onChange={handleFileChange}
       />
 
+      {locating && (
+        <div className="absolute bottom-full left-0 z-50 mb-2 flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 shadow-lg dark:border-emerald-800 dark:bg-emerald-900/40">
+          <Loader2 className="h-4 w-4 animate-spin text-emerald-600 dark:text-emerald-400" />
+          <span className="text-xs font-medium text-emerald-700 dark:text-emerald-300">Getting location...</span>
+        </div>
+      )}
+
       <button
         type="button"
-        disabled={disabled || uploading}
+        disabled={disabled || uploading || locating}
         onClick={() => setOpen((p) => !p)}
         className={cn(
           'flex h-10 w-10 items-center justify-center rounded-full text-slate-500 transition-all hover:bg-slate-100 hover:text-slate-700 dark:text-slate-400 dark:hover:bg-slate-600 dark:hover:text-slate-200',
-          uploading && 'animate-pulse',
+          (uploading || locating) && 'animate-pulse',
           open && 'bg-slate-100 text-slate-700 dark:bg-slate-600 dark:text-slate-200',
         )}
       >
-        {uploading ? (
+        {uploading || locating ? (
           <div className="h-4 w-4 animate-spin rounded-full border-2 border-slate-300 border-t-slate-600 dark:border-slate-600 dark:border-t-slate-300" />
         ) : (
           <Paperclip className="h-5 w-5" />

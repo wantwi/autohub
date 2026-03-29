@@ -492,14 +492,9 @@ export function ChatThreadPage({ conversationId: propId, embedded = false, onBac
                   disabled={sending}
                   onMediaSelect={(data) => setMediaPreview(data)}
                   onDocumentSelect={(data) => setDocAttachment(data)}
-                  onVoiceNote={async () => {
-                    try {
-                      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
-                      setVoiceStream(stream)
-                      setRecording(true)
-                    } catch (err) {
-                      console.error('Microphone access denied:', err)
-                    }
+                  onVoiceNote={(stream) => {
+                    setVoiceStream(stream)
+                    setRecording(true)
                   }}
                   onLocationSelect={async ({ lat, lng }) => {
                     const url = `https://www.google.com/maps?q=${lat},${lng}`
