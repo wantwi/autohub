@@ -1,5 +1,5 @@
 import { useCallback, useRef, useState } from 'react'
-import { Play, Pause, FileText, Download, X, ShoppingBag, ExternalLink, MapPin } from 'lucide-react'
+import { Play, Pause, FileText, Download, X, ShoppingBag, ExternalLink, MapPin, Loader2 } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { cn } from '@/lib/utils'
 
@@ -131,25 +131,50 @@ const WAVEFORM_BARS = 28
 function AudioBubble({ url }) {
   const audioRef = useRef(null)
   const [playing, setPlaying] = useState(false)
+  const [loading, setLoading] = useState(false)
   const [progress, setProgress] = useState(0)
   const [duration, setDuration] = useState(0)
+  const [error, setError] = useState(false)
 
-  const togglePlay = () => {
-    if (!audioRef.current) return
-    if (playing) audioRef.current.pause()
-    else audioRef.current.play()
-    setPlaying(!playing)
+  const syncDuration = useCallback(() => {
+    const d = audioRef.current?.duration
+    if (d && isFinite(d) && d > 0) setDuration(d)
+  }, [])
+
+  const togglePlay = async () => {
+    if (!audioRef.current || loading) return
+
+    if (playing) {
+      audioRef.current.pause()
+      setPlaying(false)
+      return
+    }
+
+    try {
+      setLoading(true)
+      setError(false)
+      await audioRef.current.play()
+      syncDuration()
+      setPlaying(true)
+    } catch (err) {
+      console.error('Audio play failed:', err)
+      setError(true)
+      setPlaying(false)
+    } finally {
+      setLoading(false)
+    }
   }
 
   const handleTimeUpdate = () => {
     if (!audioRef.current) return
+    syncDuration()
     setProgress((audioRef.current.currentTime / audioRef.current.duration) * 100 || 0)
   }
 
   const handleSeek = useCallback((e) => {
     if (!audioRef.current || !duration) return
     const rect = e.currentTarget.getBoundingClientRect()
-    const pct = (e.clientX - rect.left) / rect.width
+    const pct = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width))
     audioRef.current.currentTime = pct * duration
   }, [duration])
 
@@ -171,17 +196,30 @@ function AudioBubble({ url }) {
       <audio
         ref={audioRef}
         src={url}
-        preload="metadata"
+        preload="auto"
+        crossOrigin="anonymous"
         onTimeUpdate={handleTimeUpdate}
-        onLoadedMetadata={() => audioRef.current && setDuration(audioRef.current.duration)}
+        onLoadedMetadata={syncDuration}
+        onDurationChange={syncDuration}
+        onCanPlay={syncDuration}
         onEnded={() => { setPlaying(false); setProgress(0) }}
+        onError={() => setError(true)}
       />
       <button
         type="button"
         onClick={togglePlay}
-        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-emerald-500 text-white transition-all hover:bg-emerald-600"
+        className={cn(
+          'flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-white shadow-sm transition-all',
+          error ? 'bg-red-500 hover:bg-red-600' : 'bg-emerald-500 hover:bg-emerald-600',
+        )}
       >
-        {playing ? <Pause className="h-3.5 w-3.5" /> : <Play className="ml-0.5 h-3.5 w-3.5" />}
+        {loading ? (
+          <Loader2 className="h-4 w-4 animate-spin" />
+        ) : playing ? (
+          <Pause className="h-3.5 w-3.5" />
+        ) : (
+          <Play className="ml-0.5 h-3.5 w-3.5" />
+        )}
       </button>
       <div className="flex-1" onClick={handleSeek}>
         <div className="flex h-7 cursor-pointer items-end gap-[2px]">
@@ -197,7 +235,7 @@ function AudioBubble({ url }) {
           ))}
         </div>
         <p className="mt-0.5 text-[10px] text-slate-400 dark:text-slate-400">
-          {formatDur(playing ? audioRef.current?.currentTime : duration)}
+          {error ? 'Error' : formatDur(playing ? audioRef.current?.currentTime : duration)}
         </p>
       </div>
     </div>
