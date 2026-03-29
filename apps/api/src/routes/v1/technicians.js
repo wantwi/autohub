@@ -585,7 +585,7 @@ router.patch('/:id/verify', requireAuth, requireRole('admin'), async (req, res, 
   try {
     const pool = getPool();
     const { rows } = await pool.query(
-      `UPDATE technicians SET is_verified = NOT is_verified WHERE id = $1 RETURNING *`,
+      `UPDATE technicians SET is_verified = NOT is_verified, verified_at = CASE WHEN NOT is_verified THEN now() ELSE verified_at END WHERE id = $1 RETURNING *`,
       [req.params.id],
     );
     if (!rows.length) throw new HttpError(404, 'NOT_FOUND', 'Technician not found');
@@ -602,7 +602,7 @@ router.get('/', async (req, res, next) => {
     const serviceMode = req.query.serviceMode ? String(req.query.serviceMode).trim() : '';
     const q = req.query.q ? String(req.query.q).trim() : '';
     const verifiedRaw = req.query.verified;
-    const requireVerified = verifiedRaw !== 'false' && verifiedRaw !== '0';
+    const requireVerified = verifiedRaw === 'true' || verifiedRaw === '1';
 
     if (specialization && !VALID_SPECIALIZATIONS.includes(specialization)) {
       throw new HttpError(400, 'INVALID_SPECIALIZATION', 'Unknown specialization filter');
@@ -641,7 +641,7 @@ router.get('/', async (req, res, next) => {
     const { rows } = await pool.query(
       `SELECT t.* FROM technicians t
        ${whereSql}
-       ORDER BY t.rating_avg DESC NULLS LAST, t.created_at DESC
+       ORDER BY t.is_verified DESC, t.rating_avg DESC NULLS LAST, t.created_at DESC
        LIMIT $${i++} OFFSET $${i++}`,
       vals,
     );

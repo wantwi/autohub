@@ -79,7 +79,7 @@ export function TechniciansPage() {
               <h1 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-slate-100">Service Providers</h1>
               <p className="mt-2 flex max-w-xl flex-wrap items-center gap-x-1 text-slate-600 dark:text-slate-400">
                 <MapPin className="inline h-4 w-4 shrink-0 text-slate-400 dark:text-slate-500" aria-hidden />
-                <span>Browse verified technicians by specialty, how they work, and location.</span>
+                <span>Browse approved technicians by specialty, how they work, and location.</span>
               </p>
             </div>
           </div>

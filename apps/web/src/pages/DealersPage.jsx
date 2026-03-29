@@ -43,7 +43,7 @@ export function DealersPage() {
             <div>
               <h1 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-slate-100">Dealers</h1>
               <p className="mt-2 max-w-xl text-slate-600 dark:text-slate-400">
-                Verified shops with trusted profiles, ratings, and contact details.
+                Approved shops with trusted profiles, ratings, and contact details.
               </p>
             </div>
           </div>

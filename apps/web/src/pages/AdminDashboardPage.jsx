@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom'
-import { useQuery } from '@tanstack/react-query'
-import { Building2, CalendarClock, ClipboardList, Flag, MessageCircle, MessageSquareText, Package, PackagePlus, ShieldCheck, Users, Wrench } from 'lucide-react'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { BadgeCheck, Building2, CalendarClock, ClipboardList, Flag, MessageCircle, MessageSquareText, Package, PackagePlus, ShieldCheck, Users, Wrench } from 'lucide-react'
+import { toast } from 'sonner'
 import { apiJson } from '@/lib/api'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -37,6 +38,22 @@ export function AdminDashboardPage() {
   const bookingsQ = useQuery({
     queryKey: ['admin', 'bookings-by-status'],
     queryFn: () => apiJson('/analytics/bookings-by-status'),
+  })
+
+  const qc = useQueryClient()
+  const autoVerifyM = useMutation({
+    mutationFn: () => apiJson('/cron/auto-verify/admin', { method: 'POST' }),
+    onSuccess: (resp) => {
+      const d = resp?.data || {}
+      const total = (d.dealersVerified || 0) + (d.techniciansVerified || 0)
+      if (total > 0) {
+        toast.success(`Verified ${d.dealersVerified} dealer(s) and ${d.techniciansVerified} technician(s)`)
+      } else {
+        toast.info('No new dealers or technicians qualified for verification.')
+      }
+      qc.invalidateQueries({ queryKey: ['admin'] })
+    },
+    onError: (e) => toast.error(e.message || 'Auto-verification failed'),
   })
 
   if (q.isLoading) return <LoadingSpinner />
@@ -182,6 +199,15 @@ export function AdminDashboardPage() {
               <ClipboardList className="h-4 w-4" />
               Review onboarding queue
             </Link>
+          </Button>
+          <Button
+            variant="outline"
+            disabled={autoVerifyM.isPending}
+            onClick={() => autoVerifyM.mutate()}
+            className="inline-flex items-center gap-1.5"
+          >
+            <BadgeCheck className="h-4 w-4" />
+            {autoVerifyM.isPending ? 'Running…' : 'Run Auto-Verification'}
           </Button>
         </CardContent>
       </Card>

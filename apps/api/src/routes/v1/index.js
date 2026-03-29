@@ -16,6 +16,7 @@ import notificationsRouter from './notifications.js';
 import reportsRouter from './reports.js';
 import feedbackRouter from './feedback.js';
 import analyticsRouter from './analytics.js';
+import cronRouter from './cron.js';
 
 const router = Router();
 
@@ -102,5 +103,6 @@ router.use('/notifications', notificationsRouter);
 router.use('/reports', reportsRouter);
 router.use('/feedback', feedbackRouter);
 router.use('/analytics', analyticsRouter);
+router.use('/cron', cronRouter);
 
 export default router;

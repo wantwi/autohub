@@ -687,12 +687,12 @@ router.get('/', async (req, res, next) => {
     const { page, pageSize, offset } = parsePagination(req.query.page, req.query.pageSize);
     const pool = getPool();
     const countR = await pool.query(
-      `SELECT COUNT(*)::int AS c FROM dealers WHERE is_verified = true`
+      `SELECT COUNT(*)::int AS c FROM dealers WHERE onboarding_status = 'approved'`
     );
     const total = countR.rows[0].c;
     const { rows } = await pool.query(
-      `SELECT * FROM dealers WHERE is_verified = true
-       ORDER BY rating_avg DESC NULLS LAST, created_at DESC
+      `SELECT * FROM dealers WHERE onboarding_status = 'approved'
+       ORDER BY is_verified DESC, rating_avg DESC NULLS LAST, created_at DESC
        LIMIT $1 OFFSET $2`,
       [pageSize, offset]
     );

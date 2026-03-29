@@ -6,6 +6,7 @@ import { createApp } from './app.js';
 import { warmPool, getPool } from './db/pool.js';
 import { verifyAccessToken } from './lib/jwt.js';
 import { registerChatHandlers } from './socket/chat.js';
+import { runAutoVerification } from './services/autoVerify.js';
 
 const env = loadEnv();
 const app = createApp();
@@ -40,6 +41,18 @@ io.use(async (socket, next) => {
 });
 
 registerChatHandlers(io);
+
+const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
+setInterval(async () => {
+  try {
+    const result = await runAutoVerification();
+    if (result.dealersVerified || result.techniciansVerified) {
+      console.log('[auto-verify] Weekly run:', JSON.stringify(result));
+    }
+  } catch (e) {
+    console.error('[auto-verify] Error:', e.message);
+  }
+}, WEEK_MS);
 
 const host = process.env.HOST || '0.0.0.0';
 httpServer.listen(env.PORT, host, () => {
