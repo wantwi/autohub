@@ -167,6 +167,15 @@ export default function App() {
           />
 
           <Route
+            path="technician/register"
+            element={
+              <ProtectedRoute>
+                <TechnicianRegisterPage />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
             path="dealer"
             element={
               <ProtectedRoute>

@@ -1,5 +1,5 @@
--- Add negotiable flag to parts
-ALTER TABLE parts ADD COLUMN IF NOT EXISTS is_negotiable BOOLEAN DEFAULT false;
+-- Add is_negotiable flag to parts
+ALTER TABLE parts ADD COLUMN IF NOT EXISTS is_negotiable BOOLEAN NOT NULL DEFAULT false;
 
--- Add listing limit for dealers (free tier = 5)
-ALTER TABLE dealers ADD COLUMN IF NOT EXISTS listing_limit INT DEFAULT 5;
+-- Add listing_limit to dealers (default 5 for unverified, NULL = unlimited for verified/upgraded)
+ALTER TABLE dealers ADD COLUMN IF NOT EXISTS listing_limit INT NOT NULL DEFAULT 5;

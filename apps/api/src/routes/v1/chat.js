@@ -64,6 +64,7 @@ router.get('/', requireAuth, async (req, res, next) => {
        WHERE c.buyer_id = $1
           OR (d.user_id IS NOT NULL AND d.user_id = $1)
           OR (t.user_id IS NOT NULL AND t.user_id = $1)
+          OR c.admin_id = $1
        ORDER BY c.last_message_at DESC`,
       [userId],
     );
@@ -228,7 +229,7 @@ router.get('/:id/messages', requireAuth, async (req, res, next) => {
        FROM conversations c
        LEFT JOIN dealers d ON d.id = c.dealer_id
        LEFT JOIN technicians t ON t.id = c.technician_id
-       WHERE c.id = $1 AND (c.buyer_id = $2 OR d.user_id = $2 OR t.user_id = $2)`,
+       WHERE c.id = $1 AND (c.buyer_id = $2 OR d.user_id = $2 OR t.user_id = $2 OR c.admin_id = $2)`,
       [conversationId, userId],
     );
     if (!convRows.length) throw new HttpError(404, 'NOT_FOUND', 'Conversation not found');
@@ -301,6 +302,31 @@ router.get('/:id/messages', requireAuth, async (req, res, next) => {
     );
 
     res.json({ data: enriched });
+  } catch (e) {
+    next(e);
+  }
+});
+
+router.post('/admin', requireAuth, async (req, res, next) => {
+  try {
+    const pool = getPool();
+    const userId = req.user.id;
+    const adminR = await pool.query(`SELECT id FROM users WHERE role = 'admin' LIMIT 1`);
+    if (!adminR.rows.length) throw new HttpError(404, 'NOT_FOUND', 'No admin account found');
+    const adminId = adminR.rows[0].id;
+    if (adminId === userId) throw new HttpError(400, 'SELF_CHAT', 'You are the admin');
+
+    const { rows: existing } = await pool.query(
+      `SELECT id FROM conversations WHERE buyer_id = $1 AND dealer_id IS NULL AND technician_id IS NULL AND admin_id = $2`,
+      [userId, adminId],
+    );
+    if (existing.length) return res.json({ data: keysToCamel(existing[0]) });
+
+    const { rows } = await pool.query(
+      `INSERT INTO conversations (buyer_id, admin_id) VALUES ($1, $2) RETURNING *`,
+      [userId, adminId],
+    );
+    res.status(201).json({ data: keysToCamel(rows[0]) });
   } catch (e) {
     next(e);
   }

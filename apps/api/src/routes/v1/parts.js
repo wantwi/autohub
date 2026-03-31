@@ -90,12 +90,12 @@ dealerPartsRouter.post('/me/parts', requireAuth, loadDealerProfile, requireAppro
     const body = partBodySchema.parse(req.body);
     const pool = getPool();
 
-    if (!req.dealer.is_verified) {
-      const limit = req.dealer.listing_limit ?? 5;
-      const countR = await pool.query('SELECT COUNT(*)::int AS c FROM parts WHERE dealer_id = $1', [req.dealer.id]);
-      if (countR.rows[0].c >= limit) {
-        throw new HttpError(403, 'LISTING_LIMIT_REACHED', `You can list up to ${limit} parts. Contact admin to increase your limit.`);
-      }
+    const dealerR = await pool.query('SELECT listing_limit FROM dealers WHERE id = $1', [req.dealer.id]);
+    const limit = dealerR.rows[0]?.listing_limit ?? 5;
+    const countR = await pool.query('SELECT COUNT(*)::int AS c FROM parts WHERE dealer_id = $1', [req.dealer.id]);
+    const currentCount = countR.rows[0]?.c ?? 0;
+    if (currentCount >= limit) {
+      throw new HttpError(403, 'LISTING_LIMIT_REACHED', `You have reached your listing limit of ${limit} part${limit === 1 ? '' : 's'}. Contact support to request an upgrade.`);
     }
 
     const row = await createPartForDealer({

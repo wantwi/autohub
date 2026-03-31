@@ -85,25 +85,22 @@ export function ChatProvider({ children }) {
     }
   }, [token, user])
 
-  const sendMessage = useCallback((conversationId, body, attachmentUrl, attachmentType, replyToId, extraPayload) => {
+  const sendMessage = useCallback((conversationId, body, attachmentUrl, attachmentType, replyToId, msgPayload) => {
     return new Promise((resolve, reject) => {
       if (!socketRef.current?.connected) return reject(new Error('Not connected'))
-      const socketPayload = { conversationId, body }
+      const data = { conversationId, body }
       if (attachmentUrl && attachmentType) {
-        socketPayload.attachmentUrl = attachmentUrl
-        socketPayload.attachmentType = attachmentType
-      }
-      if (!attachmentUrl && attachmentType) {
-        socketPayload.attachmentType = attachmentType
+        data.attachmentUrl = attachmentUrl
+        data.attachmentType = attachmentType
+      } else if (attachmentType && msgPayload) {
+        data.attachmentType = attachmentType
+        data.payload = msgPayload
       }
       if (replyToId) {
-        socketPayload.replyToId = replyToId
-      }
-      if (extraPayload) {
-        socketPayload.payload = extraPayload
+        data.replyToId = replyToId
       }
       const timeout = setTimeout(() => reject(new Error('Server did not respond in time')), 15000)
-      socketRef.current.emit('send_message', socketPayload, (resp) => {
+      socketRef.current.emit('send_message', data, (resp) => {
         clearTimeout(timeout)
         if (resp?.error) reject(new Error(resp.error))
         else resolve(resp?.data)

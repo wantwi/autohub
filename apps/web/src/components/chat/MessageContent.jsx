@@ -2,7 +2,7 @@ import { useCallback, useRef, useState } from 'react'
 import { Play, Pause, FileText, Download, X, ShoppingBag, ExternalLink, MapPin, Loader2, CheckCheck } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { cn } from '@/lib/utils'
-import { OfferBubble } from './OfferBubble'
+import { OfferBubble } from '@/components/chat/OfferBubble'
 
 function extractFilename(url) {
   try {
@@ -393,7 +393,7 @@ export function MessageContent({ msg, onScrollToMessage, isMine }) {
   const isPartCard = attachmentType === 'part_card'
   const isOffer = attachmentType === 'offer'
   const locationData = extractGoogleMapsUrl(body)
-  const hasMedia = (attachmentUrl && (attachmentType === 'image' || attachmentType === 'video')) || isPartCard || isOffer || locationData
+  const hasMedia = (attachmentUrl && (attachmentType === 'image' || attachmentType === 'video')) || isPartCard || locationData || isOffer
 
   return (
     <>

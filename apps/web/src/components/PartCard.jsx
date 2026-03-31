@@ -22,6 +22,7 @@ export function PartCard({ part, className }) {
   const d = part.dealer || {}
   const dealerName = d.shopName ?? d.shop_name ?? part.dealerShopName ?? part.dealer_shop_name ?? 'Dealer'
   const isVerified = d.isVerified ?? d.is_verified ?? part.dealerIsVerified ?? part.dealer_is_verified ?? false
+  const isNegotiable = part.isNegotiable ?? part.is_negotiable ?? false
   const rating = d.ratingAvg ?? d.rating_avg ?? part.dealerRatingAvg ?? part.dealer_rating_avg
 
   return (
@@ -54,15 +55,15 @@ export function PartCard({ part, className }) {
             {part.name}
           </h3>
 
-          <div className="flex items-baseline gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <p className="text-xl font-bold tracking-tight text-slate-900 dark:text-slate-100">
               GHS {Number(part.price).toLocaleString()}
             </p>
-            {(part.isNegotiable ?? part.is_negotiable) ? (
-              <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-700 ring-1 ring-amber-200/80 dark:bg-amber-900/25 dark:text-amber-400 dark:ring-amber-700/40">
+            {isNegotiable && (
+              <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-700 ring-1 ring-amber-200 dark:bg-amber-900/30 dark:text-amber-400 dark:ring-amber-800/40">
                 Negotiable
               </span>
-            ) : null}
+            )}
           </div>
 
           <div className="mt-auto flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
