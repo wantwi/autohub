@@ -391,6 +391,13 @@ export function AppShell() {
                       <MobileLink to="/bookings" icon={CalendarClock} label="Bookings" onClick={() => setMobileMenuOpen(false)} />
                       <MobileLink to="/messages" icon={MessageCircle} label={`Messages${chatUnread > 0 ? ` (${chatUnread})` : ''}`} onClick={() => setMobileMenuOpen(false)} />
                       <MobileLink to="/feedback" icon={MessageSquareText} label="Send Feedback" onClick={() => setMobileMenuOpen(false)} />
+                      {user?.role === 'buyer' && (
+                        <>
+                          <div className="my-1 border-t border-slate-100 dark:border-slate-800" />
+                          <MobileLink to="/dealer/register" icon={Store} label="Become a Dealer" onClick={() => setMobileMenuOpen(false)} />
+                          <MobileLink to="/technician/register" icon={Wrench} label="Become a Technician" onClick={() => setMobileMenuOpen(false)} />
+                        </>
+                      )}
                     </>
                   )}
                 </>

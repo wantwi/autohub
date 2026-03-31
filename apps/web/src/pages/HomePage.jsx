@@ -1,9 +1,11 @@
 import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import {
+  ArrowRight,
   GitCompareArrows,
   MessageCircle,
   Search,
+  Store,
   Wrench,
   Zap,
   Car,
@@ -14,6 +16,7 @@ import {
   PanelTop,
 } from 'lucide-react'
 import { apiJson } from '@/lib/api'
+import { useAuthStore } from '@/stores/authStore'
 import { normalizeList } from '@/lib/normalize'
 import { SearchBar } from '@/components/SearchBar'
 import { DealerCard } from '@/components/DealerCard'
@@ -58,6 +61,7 @@ const SPEC_PILLS = [
 ]
 
 export function HomePage() {
+  const user = useAuthStore((s) => s.user)
   const dealersQ = useQuery({
     queryKey: ['dealers', { featured: true }],
     queryFn: () => apiJson('/dealers?pageSize=6'),
@@ -279,6 +283,33 @@ export function HomePage() {
           ))}
         </div>
       </section>
+
+      {(!user || user?.role === 'buyer') && (
+        <section className="animate-fade-in-up overflow-hidden rounded-2xl bg-gradient-to-br from-brand-600 via-brand-700 to-slate-900 p-8 text-white shadow-lg" style={{ animationDelay: '350ms' }}>
+          <div className="mx-auto max-w-3xl text-center">
+            <h2 className="text-2xl font-bold tracking-tight sm:text-3xl">Grow your automotive business</h2>
+            <p className="mt-2 text-brand-100">Join hundreds of dealers and technicians already earning on AutoHub Ghana.</p>
+            <div className="mt-6 flex flex-wrap justify-center gap-4">
+              <Link
+                to={user ? '/dealer/register' : '/login'}
+                className="inline-flex items-center gap-2 rounded-xl bg-white/10 px-5 py-3 text-sm font-semibold text-white ring-1 ring-white/20 transition-all hover:bg-white/20 hover:shadow-lg"
+              >
+                <Store className="h-4 w-4" />
+                Become a Dealer
+                <ArrowRight className="h-3.5 w-3.5" />
+              </Link>
+              <Link
+                to={user ? '/technician/register' : '/login'}
+                className="inline-flex items-center gap-2 rounded-xl bg-white/10 px-5 py-3 text-sm font-semibold text-white ring-1 ring-white/20 transition-all hover:bg-white/20 hover:shadow-lg"
+              >
+                <Wrench className="h-4 w-4" />
+                Register as a Technician
+                <ArrowRight className="h-3.5 w-3.5" />
+              </Link>
+            </div>
+          </div>
+        </section>
+      )}
     </div>
   )
 }

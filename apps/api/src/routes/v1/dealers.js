@@ -668,6 +668,21 @@ router.delete('/admin/:id', requireAuth, requireRole('admin'), async (req, res, 
   }
 });
 
+router.patch('/:id/listing-limit', requireAuth, requireRole('admin'), async (req, res, next) => {
+  try {
+    const limit = z.coerce.number().int().min(1).max(9999).parse(req.body.limit);
+    const pool = getPool();
+    const { rows } = await pool.query(
+      `UPDATE dealers SET listing_limit = $1 WHERE id = $2 RETURNING *`,
+      [limit, req.params.id]
+    );
+    if (!rows.length) throw new HttpError(404, 'NOT_FOUND', 'Dealer not found');
+    res.json({ data: keysToCamel(rows[0]) });
+  } catch (e) {
+    next(e);
+  }
+});
+
 router.patch('/:id/verify', requireAuth, requireRole('admin'), async (req, res, next) => {
   try {
     const pool = getPool();

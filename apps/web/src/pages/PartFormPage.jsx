@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useForm } from 'react-hook-form'
 import { yupResolver } from '@hookform/resolvers/yup'
 import * as yup from 'yup'
-import { ImageIcon, Package, Wrench } from 'lucide-react'
+import { ImageIcon, Lock, MessageSquare, Package, Wrench } from 'lucide-react'
 import { apiJson } from '@/lib/api'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
@@ -23,6 +23,7 @@ const schema = yup.object({
   condition: yup.string().oneOf(['new', 'used', 'refurbished']).required(),
   price: yup.number().positive().required(),
   quantity: yup.number().integer().min(0).required(),
+  is_negotiable: yup.boolean().default(false),
   compatible_makes: yup.string(),
   compatible_models: yup.string(),
   year_from: yup.number().integer().min(1980),
@@ -61,6 +62,7 @@ export function PartFormPage() {
   const isEdit = Boolean(id)
   const navigate = useNavigate()
   const qc = useQueryClient()
+  const [listingLimitReached, setListingLimitReached] = useState(false)
   const [images, setImages] = useState([])
   const categoriesQ = usePartCategories()
 
@@ -85,6 +87,7 @@ export function PartFormPage() {
       condition: 'new',
       price: 0,
       quantity: 1,
+      is_negotiable: false,
       compatible_makes: '',
       compatible_models: '',
       year_from: 2010,
@@ -113,6 +116,7 @@ export function PartFormPage() {
       condition: p.condition || 'new',
       price: Number(p.price) || 0,
       quantity: p.quantity ?? 1,
+      is_negotiable: p.isNegotiable ?? p.is_negotiable ?? false,
       compatible_makes: (p.compatibleMakes ?? p.compatible_makes ?? []).join(', '),
       compatible_models: (p.compatibleModels ?? p.compatible_models ?? []).join(', '),
       year_from: yearFrom,
@@ -141,11 +145,48 @@ export function PartFormPage() {
         navigate('/dealer/register')
         return
       }
+      if (code === 'LISTING_LIMIT_REACHED') {
+        setListingLimitReached(true)
+        return
+      }
       toast.error(e.message)
     },
   })
 
   if (isEdit && existingQ.isLoading) return <LoadingSpinner />
+
+  if (listingLimitReached) {
+    return (
+      <div className="animate-fade-in-up mx-auto max-w-lg py-12 text-center">
+        <div className="flex h-16 w-16 items-center justify-center rounded-full bg-amber-100 dark:bg-amber-900/30 mx-auto mb-4">
+          <Lock className="h-8 w-8 text-amber-600 dark:text-amber-400" />
+        </div>
+        <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Listing limit reached</h1>
+        <p className="mt-2 text-slate-600 dark:text-slate-400">
+          You've used all your free part listing slots. Contact our admin to request an upgrade and list more parts.
+        </p>
+        <div className="mt-6 flex flex-col items-center gap-3">
+          <Button
+            className="gap-2"
+            onClick={async () => {
+              try {
+                const conv = await apiJson('/conversations/admin', { method: 'POST' })
+                navigate(`/messages/${conv.id}`)
+              } catch {
+                navigate('/messages')
+              }
+            }}
+          >
+            <MessageSquare className="h-4 w-4" />
+            Chat with admin
+          </Button>
+          <Button variant="ghost" size="sm" onClick={() => navigate('/dealer/parts')}>
+            Back to my parts
+          </Button>
+        </div>
+      </div>
+    )
+  }
 
   const onSubmit = (vals) => {
     const makes = vals.compatible_makes
@@ -163,6 +204,7 @@ export function PartFormPage() {
       condition: vals.condition,
       price: vals.price,
       quantity: vals.quantity,
+      isNegotiable: vals.is_negotiable ?? false,
       compatibleMakes: makes,
       compatibleModels: models,
       minCompatibleYear: vals.year_from ? Number(vals.year_from) : undefined,
@@ -260,6 +302,13 @@ export function PartFormPage() {
                       <Input type="number" {...register('quantity')} />
                     </div>
                   </div>
+                  <label className="flex cursor-pointer items-center gap-3 rounded-lg border border-slate-200 bg-slate-50/60 px-4 py-3 transition-colors hover:bg-slate-100/80 dark:border-slate-700 dark:bg-slate-800/40 dark:hover:bg-slate-800/70">
+                    <input type="checkbox" {...register('is_negotiable')} className="h-4 w-4 rounded border-slate-300 accent-brand-600" />
+                    <div>
+                      <p className="text-sm font-medium text-slate-800 dark:text-slate-200">Price is negotiable</p>
+                      <p className="text-xs text-slate-500 dark:text-slate-400">Buyers will see a "Make an Offer" button on this listing.</p>
+                    </div>
+                  </label>
                 </section>
 
                 <section className="space-y-4">

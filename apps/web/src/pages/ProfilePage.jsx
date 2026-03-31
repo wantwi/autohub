@@ -2,7 +2,8 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useForm } from 'react-hook-form'
 import { yupResolver } from '@hookform/resolvers/yup'
 import * as yup from 'yup'
-import { Car, Phone, UserRound } from 'lucide-react'
+import { ArrowRight, Car, Phone, Store, UserRound, Wrench } from 'lucide-react'
+import { Link } from 'react-router-dom'
 import { apiJson } from '@/lib/api'
 import { useAuthStore } from '@/stores/authStore'
 import { normalizeList } from '@/lib/normalize'
@@ -225,6 +226,31 @@ export function ProfilePage() {
           </p>
         </CardContent>
       </Card>
+
+      {user?.role === 'buyer' && (
+        <Card className="border-brand-200/60 bg-gradient-to-br from-brand-50/80 to-white shadow-sm dark:border-brand-700/30 dark:from-brand-950/30 dark:to-slate-900">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-lg text-brand-800 dark:text-brand-300">Earn on AutoHub</CardTitle>
+            <CardDescription>Join as a dealer or technician and start serving customers.</CardDescription>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-3 sm:flex-row">
+            <Button asChild variant="outline" className="flex-1 gap-2 border-brand-200 text-brand-700 hover:bg-brand-50 dark:border-brand-700/40 dark:text-brand-400">
+              <Link to="/dealer/register">
+                <Store className="h-4 w-4" />
+                Become a Dealer
+                <ArrowRight className="ml-auto h-3.5 w-3.5" />
+              </Link>
+            </Button>
+            <Button asChild variant="outline" className="flex-1 gap-2 border-brand-200 text-brand-700 hover:bg-brand-50 dark:border-brand-700/40 dark:text-brand-400">
+              <Link to="/technician/register">
+                <Wrench className="h-4 w-4" />
+                Become a Technician
+                <ArrowRight className="ml-auto h-3.5 w-3.5" />
+              </Link>
+            </Button>
+          </CardContent>
+        </Card>
+      )}
     </div>
   )
 }

@@ -30,6 +30,8 @@ const onboardingStatusSchema = z.enum(['pending', 'approved', 'rejected']);
 
 const router = Router();
 
+import { createNotification } from '../../services/notifyInApp.js';
+
 /**
  * Attaches req.technician (row) for the authenticated user.
  */
@@ -86,6 +88,20 @@ const adminOnboardingUpdateSchema = z.object({
   onboardingNote: z.string().max(1000).optional().nullable(),
 });
 
+const selfRegisterSchema = z.object({
+  displayName: z.string().min(1).max(255),
+  phoneBusiness: z.string().max(30).optional().nullable(),
+  specializations: z.array(specializationSchema).min(1, 'Select at least one specialization'),
+  serviceMode: serviceModeSchema.optional().default('both'),
+  description: z.string().max(5000).optional().nullable(),
+  locationText: z.string().max(500).optional().nullable(),
+  lat: z.coerce.number().optional().nullable(),
+  lng: z.coerce.number().optional().nullable(),
+  operatingHours: z.record(z.string(), z.string()).optional().nullable(),
+  openOnHolidays: z.coerce.boolean().optional().default(false),
+  bannerUrl: z.string().url().optional().nullable(),
+});
+
 const adminEditTechnicianSchema = z.object({
   fullName: z.string().min(1).max(255).optional(),
   phone: z.string().min(8).max(20).optional(),
@@ -102,6 +118,72 @@ const adminEditTechnicianSchema = z.object({
   openOnHolidays: z.coerce.boolean().optional(),
   bannerUrl: z.string().url().optional().nullable(),
   onboardingStatus: onboardingStatusSchema.optional(),
+});
+
+router.get('/register/status', requireAuth, async (req, res, next) => {
+  try {
+    const pool = getPool();
+    const { rows } = await pool.query('SELECT * FROM technicians WHERE user_id = $1', [req.user.id]);
+    res.json({ data: rows.length ? keysToCamel(rows[0]) : null });
+  } catch (e) {
+    next(e);
+  }
+});
+
+router.post('/register', requireAuth, async (req, res, next) => {
+  try {
+    const body = selfRegisterSchema.parse(req.body);
+    const pool = getPool();
+
+    if (req.user.role !== 'buyer') {
+      throw new HttpError(400, 'ALREADY_REGISTERED', 'You already have a dealer or technician profile.');
+    }
+
+    const existing = await pool.query('SELECT id FROM technicians WHERE user_id = $1', [req.user.id]);
+    if (existing.rows.length) {
+      throw new HttpError(409, 'ALREADY_REGISTERED', 'A technician profile already exists for your account.');
+    }
+
+    const { rows } = await pool.query(
+      `INSERT INTO technicians (
+         user_id, display_name, phone_business, specializations, description,
+         location_text, lat, lng, service_mode, operating_hours,
+         open_on_holidays, banner_url, onboarding_status
+       ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,'pending') RETURNING *`,
+      [
+        req.user.id,
+        body.displayName,
+        body.phoneBusiness ?? null,
+        body.specializations,
+        body.description ?? null,
+        body.locationText ?? null,
+        body.lat ?? null,
+        body.lng ?? null,
+        body.serviceMode ?? 'both',
+        body.operatingHours ?? null,
+        body.openOnHolidays ?? false,
+        body.bannerUrl ?? null,
+      ],
+    );
+
+    const adminR = await pool.query(`SELECT id FROM users WHERE role = 'admin' LIMIT 1`);
+    if (adminR.rows.length) {
+      const adminUserId = adminR.rows[0].id;
+      const applicantName = await pool
+        .query('SELECT full_name FROM users WHERE id = $1', [req.user.id])
+        .then((r) => r.rows[0]?.full_name || 'Someone');
+      createNotification(adminUserId, {
+        type: 'new_tech_application',
+        title: 'New Technician Application',
+        body: `${applicantName} has applied to become a technician on AutoHub.`,
+        link: '/admin/onboarding',
+      }).catch(() => {});
+    }
+
+    res.status(201).json({ data: keysToCamel(rows[0]) });
+  } catch (e) {
+    next(e);
+  }
 });
 
 router.get('/me/dashboard', requireAuth, loadTechProfile, async (req, res, next) => {

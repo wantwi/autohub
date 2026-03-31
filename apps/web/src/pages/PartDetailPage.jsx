@@ -1,11 +1,12 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useMutation, useQuery } from '@tanstack/react-query'
-import { Lock, MapPin, MessageSquare, Package, Phone, Star, Wrench } from 'lucide-react'
+import { HandCoins, Lock, MapPin, MessageSquare, Package, Phone, Star, Wrench, X } from 'lucide-react'
 import { toast } from 'sonner'
 import { apiJson } from '@/lib/api'
 import { normalizeList } from '@/lib/normalize'
 import { useAuthStore } from '@/stores/authStore'
+import { useChatContext } from '@/providers/ChatProvider'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -20,6 +21,11 @@ export function PartDetailPage() {
   const user = useAuthStore((s) => s.user)
   const navigate = useNavigate()
   const [imageIndex, setImageIndex] = useState(0)
+  const [showOfferModal, setShowOfferModal] = useState(false)
+  const [offerPrice, setOfferPrice] = useState('')
+  const [offerNote, setOfferNote] = useState('')
+  const [offerSending, setOfferSending] = useState(false)
+  const { sendMessage } = useChatContext()
 
   const partQ = useQuery({
     queryKey: ['part', id],
@@ -39,6 +45,34 @@ export function PartDetailPage() {
     onSuccess: (conv) => navigate(`/messages/${conv.id}`),
     onError: (e) => toast.error(e.message),
   })
+
+  const handleSendOffer = async () => {
+    const price = Number(offerPrice)
+    if (!price || price <= 0) {
+      toast.error('Please enter a valid offer price.')
+      return
+    }
+    setOfferSending(true)
+    try {
+      const conv = await apiJson('/conversations', {
+        method: 'POST',
+        body: JSON.stringify({ dealerId: part.dealer?.id ?? part.dealerId, partId: part.id }),
+      })
+      await sendMessage(conv.id, offerNote.trim() || null, null, 'offer', null, {
+        partId: part.id,
+        partName: part.name,
+        originalPrice: Number(part.price),
+        offerPrice: price,
+        note: offerNote.trim() || null,
+      })
+      setShowOfferModal(false)
+      navigate(`/messages/${conv.id}`)
+    } catch (err) {
+      toast.error(err.message || 'Failed to send offer.')
+    } finally {
+      setOfferSending(false)
+    }
+  }
 
   const part = partQ.data
   const { items: others } = normalizeList(compareQ.data)
@@ -118,9 +152,16 @@ export function PartDetailPage() {
               </Badge>
             ) : null}
           </div>
-          <p className="text-3xl font-bold tracking-tight text-brand-700 dark:text-brand-400">
-            GHS {Number(part.price).toLocaleString()}
-          </p>
+          <div className="flex flex-wrap items-center gap-3">
+            <p className="text-3xl font-bold tracking-tight text-brand-700 dark:text-brand-400">
+              GHS {Number(part.price).toLocaleString()}
+            </p>
+            {(part.isNegotiable ?? part.is_negotiable) && (
+              <span className="rounded-full bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-700 ring-1 ring-amber-200 dark:bg-amber-900/30 dark:text-amber-300 dark:ring-amber-700/40">
+                Negotiable
+              </span>
+            )}
+          </div>
 
           <Card className="border-slate-200/80 shadow-sm transition-shadow duration-300 hover:shadow-md dark:border-slate-700">
             <CardHeader className="pb-2">
@@ -184,6 +225,16 @@ export function PartDetailPage() {
                 <MessageSquare className="h-4 w-4" />
                 {messageMut.isPending ? 'Opening...' : 'Message dealer'}
               </Button>
+              {(part.isNegotiable ?? part.is_negotiable) && (
+                <Button
+                  size="lg"
+                  className="gap-2 bg-amber-500 text-white hover:bg-amber-600 dark:bg-amber-600 dark:hover:bg-amber-700"
+                  onClick={() => { setOfferPrice(''); setOfferNote(''); setShowOfferModal(true) }}
+                >
+                  <HandCoins className="h-4 w-4" />
+                  Make an Offer
+                </Button>
+              )}
               {phoneDigits && (
                 <Button asChild variant="outline" size="lg" className="gap-2">
                   <a href={`tel:${phoneDigits}`}>
@@ -201,6 +252,57 @@ export function PartDetailPage() {
               <Button asChild size="sm" className="mt-3 gap-2">
                 <Link to="/login">Sign in</Link>
               </Button>
+            </div>
+          )}
+
+          {showOfferModal && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
+              <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl dark:bg-slate-900">
+                <div className="mb-4 flex items-center justify-between">
+                  <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100">Make an Offer</h2>
+                  <button type="button" onClick={() => setShowOfferModal(false)} className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-800">
+                    <X className="h-5 w-5" />
+                  </button>
+                </div>
+                <div className="mb-4 rounded-lg bg-amber-50 px-4 py-3 dark:bg-amber-900/20">
+                  <p className="text-sm font-medium text-slate-700 dark:text-slate-300">{part.name}</p>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">Listed price: GHS {Number(part.price).toLocaleString()}</p>
+                </div>
+                <div className="space-y-4">
+                  <div>
+                    <label className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-300">Your offer price (GHS) <span className="text-red-500">*</span></label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="1"
+                      value={offerPrice}
+                      onChange={(e) => setOfferPrice(e.target.value)}
+                      placeholder="e.g. 250"
+                      className="h-11 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/25 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-300">Message (optional)</label>
+                    <textarea
+                      value={offerNote}
+                      onChange={(e) => setOfferNote(e.target.value)}
+                      placeholder="e.g. I'll pick it up today."
+                      rows={3}
+                      className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/25 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+                    />
+                  </div>
+                  <div className="flex gap-3">
+                    <Button variant="outline" className="flex-1" onClick={() => setShowOfferModal(false)}>Cancel</Button>
+                    <Button
+                      className="flex-1 bg-amber-500 text-white hover:bg-amber-600"
+                      disabled={offerSending}
+                      onClick={handleSendOffer}
+                    >
+                      {offerSending ? 'Sending...' : 'Send Offer'}
+                    </Button>
+                  </div>
+                </div>
+              </div>
             </div>
           )}
         </div>

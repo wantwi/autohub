@@ -54,14 +54,14 @@ export function registerChatHandlers(io) {
     const userId = socket.user.id;
     socket.join(`user:${userId}`);
 
-    socket.on('send_message', async ({ conversationId, body, attachmentUrl, attachmentType, replyToId }, ack) => {
+    socket.on('send_message', async ({ conversationId, body, attachmentUrl, attachmentType, replyToId, payload }, ack) => {
       const hasText = body?.trim();
-      const hasAttachment = attachmentUrl && attachmentType;
+      const hasAttachment = (attachmentUrl && attachmentType) || (attachmentType === 'offer' && payload);
       if (!conversationId || (!hasText && !hasAttachment)) {
         return ack?.({ error: 'conversationId and (body or attachment) are required' });
       }
 
-      const VALID_TYPES = ['image', 'video', 'audio', 'document'];
+      const VALID_TYPES = ['image', 'video', 'audio', 'document', 'offer', 'location'];
       if (hasAttachment && !VALID_TYPES.includes(attachmentType)) {
         return ack?.({ error: 'Invalid attachmentType' });
       }
@@ -84,10 +84,11 @@ export function registerChatHandlers(io) {
           if (replyRows.length) validReplyToId = replyToId;
         }
 
+        const msgPayload = payload ? JSON.stringify(payload) : null;
         const { rows } = await pool.query(
-          `INSERT INTO messages (conversation_id, sender_id, body, attachment_url, attachment_type, reply_to_id)
-           VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
-          [conversationId, userId, hasText ? body.trim() : null, hasAttachment ? attachmentUrl : null, hasAttachment ? attachmentType : null, validReplyToId],
+          `INSERT INTO messages (conversation_id, sender_id, body, attachment_url, attachment_type, reply_to_id, payload)
+           VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
+          [conversationId, userId, hasText ? body.trim() : null, attachmentUrl || null, hasAttachment ? attachmentType : null, validReplyToId, msgPayload],
         );
         const msg = keysToCamel(rows[0]);
 

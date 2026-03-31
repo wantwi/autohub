@@ -29,6 +29,7 @@ const partBodySchema = z.object({
   maxCompatibleYear: z.coerce.number().int().optional().nullable(),
   images: z.array(z.string().url()).max(5).optional().default([]),
   partNumber: z.string().max(100).optional().nullable(),
+  isNegotiable: z.coerce.boolean().optional().default(false),
 });
 
 function buildYearRange(minY, maxY) {
@@ -54,17 +55,18 @@ async function createPartForDealer({ pool, dealerId, body, createdByUserId, crea
     body.partNumber ?? null,
     createdByUserId ?? null,
     createdByRole ?? null,
+    body.isNegotiable ?? false,
   ];
   const sql = range
     ? `INSERT INTO parts (
          dealer_id, name, description, category, condition, price, quantity,
          compatible_makes, compatible_models, compatible_years, images, part_number,
-         created_by_user_id, created_by_role
-       ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10::int4range,$11,$12,$13,$14) RETURNING *`
+         created_by_user_id, created_by_role, is_negotiable
+       ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10::int4range,$11,$12,$13,$14,$15) RETURNING *`
     : `INSERT INTO parts (
          dealer_id, name, description, category, condition, price, quantity,
-         compatible_makes, compatible_models, images, part_number, created_by_user_id, created_by_role
-       ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) RETURNING *`;
+         compatible_makes, compatible_models, images, part_number, created_by_user_id, created_by_role, is_negotiable
+       ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14) RETURNING *`;
   const params = range ? [...base.slice(0, 9), range, ...base.slice(9)] : base;
   const { rows } = await pool.query(sql, params);
   return rows[0];
@@ -87,6 +89,15 @@ dealerPartsRouter.post('/me/parts', requireAuth, loadDealerProfile, requireAppro
   try {
     const body = partBodySchema.parse(req.body);
     const pool = getPool();
+
+    const dealerR = await pool.query('SELECT listing_limit FROM dealers WHERE id = $1', [req.dealer.id]);
+    const limit = dealerR.rows[0]?.listing_limit ?? 5;
+    const countR = await pool.query('SELECT COUNT(*)::int AS c FROM parts WHERE dealer_id = $1', [req.dealer.id]);
+    const currentCount = countR.rows[0]?.c ?? 0;
+    if (currentCount >= limit) {
+      throw new HttpError(403, 'LISTING_LIMIT_REACHED', `You have reached your listing limit of ${limit} part${limit === 1 ? '' : 's'}. Contact support to request an upgrade.`);
+    }
+
     const row = await createPartForDealer({
       pool,
       dealerId: req.dealer.id,
@@ -173,6 +184,7 @@ dealerPartsRouter.put('/me/parts/:id', requireAuth, loadDealerProfile, requireAp
     }
     if (body.images !== undefined) push('images', body.images);
     if (body.partNumber !== undefined) push('part_number', body.partNumber);
+    if (body.isNegotiable !== undefined) push('is_negotiable', body.isNegotiable);
     if (!fields.length) throw new HttpError(400, 'EMPTY_UPDATE', 'No fields to update');
     vals.push(req.params.id);
     const { rows } = await pool.query(
