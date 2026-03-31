@@ -393,6 +393,12 @@ export function AppShell() {
                       <MobileLink to="/feedback" icon={MessageSquareText} label="Send Feedback" onClick={() => setMobileMenuOpen(false)} />
                     </>
                   )}
+                  {user?.role === 'buyer' && (
+                    <>
+                      <MobileLink to="/dealer/register" icon={Store} label="Become a dealer" onClick={() => setMobileMenuOpen(false)} />
+                      <MobileLink to="/technician/register" icon={Wrench} label="Become a technician" onClick={() => setMobileMenuOpen(false)} />
+                    </>
+                  )}
                 </>
               )}
               {user ? (
@@ -488,6 +494,12 @@ export function AppShell() {
                     <NavItem to="/bookings" icon={CalendarClock} label="Bookings" />
                     <NavItem to="/messages" icon={MessageCircle} label="Messages" badge={chatUnread} />
                     <NavItem to="/profile" icon={User} label="Profile" />
+                    {user.role === 'buyer' && (
+                      <>
+                        <NavItem to="/dealer/register" icon={Store} label="Become a dealer" />
+                        <NavItem to="/technician/register" icon={Wrench} label="Become a technician" />
+                      </>
+                    )}
                   </>
                 ) : (
                   <NavItem to="/login" icon={LogIn} label="Sign in" />

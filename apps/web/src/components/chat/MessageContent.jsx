@@ -2,6 +2,7 @@ import { useCallback, useRef, useState } from 'react'
 import { Play, Pause, FileText, Download, X, ShoppingBag, ExternalLink, MapPin, Loader2, CheckCheck } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { cn } from '@/lib/utils'
+import { OfferBubble } from '@/components/chat/OfferBubble'
 
 function extractFilename(url) {
   try {
@@ -357,6 +358,7 @@ const ATTACHMENT_TYPE_LABELS = {
   audio: 'Voice note',
   document: 'Document',
   part_card: 'Part enquiry',
+  offer: 'Price offer',
 }
 
 export function ReplyQuote({ replyTo, onScrollTo }) {
@@ -389,8 +391,13 @@ export function MessageContent({ msg, onScrollToMessage, isMine }) {
   const { attachmentUrl, attachmentType, body, createdAt, replyTo, payload, isRead } = msg
   const time = timeStr(createdAt)
   const isPartCard = attachmentType === 'part_card'
+  const isOffer = attachmentType === 'offer'
   const locationData = extractGoogleMapsUrl(body)
-  const hasMedia = (attachmentUrl && (attachmentType === 'image' || attachmentType === 'video')) || isPartCard || locationData
+  const hasMedia =
+    (attachmentUrl && (attachmentType === 'image' || attachmentType === 'video'))
+    || isPartCard
+    || isOffer
+    || locationData
 
   return (
     <>
@@ -402,6 +409,7 @@ export function MessageContent({ msg, onScrollToMessage, isMine }) {
       {isPartCard && (
         <PartCardBubble payload={payload} />
       )}
+      {isOffer && <OfferBubble payload={payload} />}
       {locationData && (
         <LocationBubble lat={locationData.lat} lng={locationData.lng} url={locationData.url} />
       )}
@@ -418,7 +426,7 @@ export function MessageContent({ msg, onScrollToMessage, isMine }) {
         <DocumentBubble url={attachmentUrl} />
       )}
       {body && !locationData && (
-        <span className={cn('whitespace-pre-wrap break-words', hasMedia && 'mt-1 block px-2.5 pb-0.5')}>{body}</span>
+        <span className={cn('whitespace-pre-wrap break-words', (hasMedia || isOffer) && 'mt-1 block px-2.5 pb-0.5')}>{body}</span>
       )}
     </>
   )
@@ -427,4 +435,5 @@ export function MessageContent({ msg, onScrollToMessage, isMine }) {
 export function hasMediaAttachment(msg) {
   return (msg.attachmentUrl && (msg.attachmentType === 'image' || msg.attachmentType === 'video'))
     || msg.attachmentType === 'part_card'
+    || msg.attachmentType === 'offer'
 }

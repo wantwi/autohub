@@ -103,6 +103,23 @@ export function AdminOnboardingPage() {
     onError: (e) => toast.error(e.message || 'Verification failed'),
   })
 
+  const [listingLimitState, setListingLimitState] = useState(null)
+  const [listingLimitInput, setListingLimitInput] = useState('5')
+
+  const listingLimitM = useMutation({
+    mutationFn: ({ id, listingLimit }) =>
+      apiJson(`/dealers/admin/${id}/listing-limit`, {
+        method: 'PATCH',
+        body: JSON.stringify({ listingLimit }),
+      }),
+    onSuccess: () => {
+      toast.success('Listing limit updated')
+      setListingLimitState(null)
+      qc.invalidateQueries({ queryKey: ['admin', 'dealers'] })
+    },
+    onError: (e) => toast.error(e.message || 'Update failed'),
+  })
+
   const {
     register,
     handleSubmit,
@@ -394,6 +411,12 @@ export function AdminOnboardingPage() {
                   <th className="whitespace-nowrap px-5 py-4">Location</th>
                   <th className="whitespace-nowrap px-5 py-4">Status</th>
                   <th className="whitespace-nowrap px-5 py-4 text-center">Verified</th>
+                  <th
+                    className="whitespace-nowrap px-5 py-4 text-center"
+                    title="Max active listings while shop is not verified"
+                  >
+                    List cap
+                  </th>
                   <th className="whitespace-nowrap px-5 py-4 text-right">Actions</th>
                 </tr>
               </thead>
@@ -440,6 +463,20 @@ export function AdminOnboardingPage() {
                           <ShieldOff className="h-3.5 w-3.5" />
                         )}
                         {d.isVerified ? 'Yes' : 'No'}
+                      </button>
+                    </td>
+                    <td className="whitespace-nowrap px-5 py-4 text-center">
+                      <button
+                        type="button"
+                        title="Edit listing cap (unverified dealers)"
+                        onClick={() => {
+                          setListingLimitInput(String(d.listingLimit ?? d.listing_limit ?? 5))
+                          setListingLimitState({ dealer: d })
+                        }}
+                        className="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-white px-2 py-1 text-xs font-semibold text-slate-700 transition-colors hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
+                      >
+                        {d.listingLimit ?? d.listing_limit ?? 5}
+                        <Pencil className="h-3 w-3 opacity-60" />
                       </button>
                     </td>
                     <td className="whitespace-nowrap px-5 py-4">
@@ -542,6 +579,54 @@ export function AdminOnboardingPage() {
           </div>
         )}
       </div>
+
+      <Modal
+        open={!!listingLimitState}
+        onClose={() => setListingLimitState(null)}
+        className="max-w-sm"
+      >
+        <ModalHeader>
+          <h2 className="text-base font-semibold text-slate-900 dark:text-slate-100">Listing cap</h2>
+          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+            Max active part listings for{' '}
+            <span className="font-medium text-slate-700 dark:text-slate-200">
+              {listingLimitState?.dealer?.shopName}
+            </span>{' '}
+            while the shop is not verified.
+          </p>
+        </ModalHeader>
+        <ModalBody>
+          <Label htmlFor="listing-cap-input">Max listings</Label>
+          <Input
+            id="listing-cap-input"
+            type="number"
+            min={1}
+            max={99999}
+            className="mt-1.5 h-9"
+            value={listingLimitInput}
+            onChange={(e) => setListingLimitInput(e.target.value)}
+          />
+        </ModalBody>
+        <ModalFooter>
+          <Button type="button" variant="outline" onClick={() => setListingLimitState(null)}>
+            Cancel
+          </Button>
+          <Button
+            type="button"
+            disabled={listingLimitM.isPending}
+            onClick={() => {
+              const n = parseInt(listingLimitInput, 10)
+              if (Number.isNaN(n) || n < 1) {
+                toast.error('Enter a number from 1 to 99999')
+                return
+              }
+              listingLimitM.mutate({ id: listingLimitState.dealer.id, listingLimit: n })
+            }}
+          >
+            Save
+          </Button>
+        </ModalFooter>
+      </Modal>
 
       {/* Add Dealer Modal */}
       <Modal open={modalOpen} onClose={() => setModalOpen(false)} className="max-w-md">

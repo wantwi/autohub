@@ -2,7 +2,8 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useForm } from 'react-hook-form'
 import { yupResolver } from '@hookform/resolvers/yup'
 import * as yup from 'yup'
-import { Car, Phone, UserRound } from 'lucide-react'
+import { Link } from 'react-router-dom'
+import { Car, Phone, Store, UserRound, Wrench } from 'lucide-react'
 import { apiJson } from '@/lib/api'
 import { useAuthStore } from '@/stores/authStore'
 import { normalizeList } from '@/lib/normalize'
@@ -145,6 +146,36 @@ export function ProfilePage() {
           </form>
         </CardContent>
       </Card>
+
+      {user?.role === 'buyer' ? (
+        <Card className="border-slate-200/80 shadow-sm transition-shadow hover:shadow-md dark:border-slate-700">
+          <CardHeader className="pb-3">
+            <div className="flex items-center gap-2">
+              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-brand-500/10 text-brand-700 dark:bg-brand-500/20 dark:text-brand-400">
+                <Store className="h-4 w-4" aria-hidden />
+              </div>
+              <div>
+                <CardTitle className="text-lg">Sell or service on AutoHub</CardTitle>
+                <CardDescription>Register as a parts dealer or a mobile or workshop technician.</CardDescription>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="flex flex-wrap gap-3">
+            <Button asChild variant="outline" className="gap-2 shadow-sm">
+              <Link to="/dealer/register">
+                <Store className="h-4 w-4" aria-hidden />
+                Become a dealer
+              </Link>
+            </Button>
+            <Button asChild variant="outline" className="gap-2 shadow-sm">
+              <Link to="/technician/register">
+                <Wrench className="h-4 w-4" aria-hidden />
+                Become a technician
+              </Link>
+            </Button>
+          </CardContent>
+        </Card>
+      ) : null}
 
       <Card className="border-slate-200/80 shadow-sm transition-shadow hover:shadow-md dark:border-slate-700">
         <CardHeader className="pb-3">

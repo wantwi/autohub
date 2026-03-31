@@ -22,6 +22,9 @@ const ProfilePage = lazy(() => import('@/pages/ProfilePage').then((m) => ({ defa
 const DealerRegisterPage = lazy(() =>
   import('@/pages/DealerRegisterPage').then((m) => ({ default: m.DealerRegisterPage })),
 )
+const TechnicianRegisterPage = lazy(() =>
+  import('@/pages/TechnicianRegisterPage').then((m) => ({ default: m.TechnicianRegisterPage })),
+)
 const DealerDashboard = lazy(() => import('@/pages/DealerDashboard').then((m) => ({ default: m.DealerDashboard })))
 const DealerPartsPage = lazy(() => import('@/pages/DealerPartsPage').then((m) => ({ default: m.DealerPartsPage })))
 const PartFormPage = lazy(() => import('@/pages/PartFormPage').then((m) => ({ default: m.PartFormPage })))
@@ -151,6 +154,14 @@ export default function App() {
             element={
               <ProtectedRoute>
                 <DealerRegisterPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="technician/register"
+            element={
+              <ProtectedRoute>
+                <TechnicianRegisterPage />
               </ProtectedRoute>
             }
           />

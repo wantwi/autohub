@@ -4,7 +4,8 @@ import { useForm } from 'react-hook-form'
 import { yupResolver } from '@hookform/resolvers/yup'
 import * as yup from 'yup'
 import { ImageIcon, Package, Wrench } from 'lucide-react'
-import { apiJson } from '@/lib/api'
+import { apiJson, ApiError } from '@/lib/api'
+import { useChatContext } from '@/providers/ChatProvider'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -28,6 +29,7 @@ const schema = yup.object({
   year_from: yup.number().integer().min(1980),
   year_to: yup.number().integer().min(1980),
   part_number: yup.string(),
+  is_negotiable: yup.boolean(),
 })
 
 const textareaClass =
@@ -61,8 +63,16 @@ export function PartFormPage() {
   const isEdit = Boolean(id)
   const navigate = useNavigate()
   const qc = useQueryClient()
+  const { sendMessage, connected } = useChatContext()
   const [images, setImages] = useState([])
+  const [listingLimitHit, setListingLimitHit] = useState(null)
   const categoriesQ = usePartCategories()
+
+  const dealerMeQ = useQuery({
+    queryKey: ['dealer', 'me'],
+    queryFn: () => apiJson('/dealers/me'),
+    enabled: true,
+  })
 
   const existingQ = useQuery({
     queryKey: ['dealer', 'part', id],
@@ -118,6 +128,7 @@ export function PartFormPage() {
       year_from: yearFrom,
       year_to: yearTo,
       part_number: p.partNumber ?? p.part_number ?? '',
+      is_negotiable: Boolean(p.isNegotiable ?? p.is_negotiable),
     })
     // Sync gallery when loading an existing listing (server is source of truth).
     // eslint-disable-next-line react-hooks/set-state-in-effect -- reset local upload state from query
@@ -135,10 +146,17 @@ export function PartFormPage() {
       navigate('/dealer/parts')
     },
     onError: (e) => {
-      const code = e?.payload?.error?.code
+      const payload = e instanceof ApiError ? e.payload : null
+      const code = payload?.error?.code
       if (code === 'DEALER_NOT_APPROVED') {
         toast.error('Only approved dealers can publish parts. Complete or review your dealer application.')
         navigate('/dealer/register')
+        return
+      }
+      if (code === 'LISTING_LIMIT_REACHED') {
+        const lim = payload?.error?.details?.limit
+        setListingLimitHit(Number(lim) || 5)
+        toast.error(e.message || 'Listing limit reached')
         return
       }
       toast.error(e.message)
@@ -169,7 +187,32 @@ export function PartFormPage() {
       maxCompatibleYear: vals.year_to ? Number(vals.year_to) : undefined,
       images,
       partNumber: vals.part_number || undefined,
+      isNegotiable: Boolean(vals.is_negotiable),
     })
+  }
+
+  async function handleRequestListingUpgrade() {
+    const lim = listingLimitHit ?? 5
+    const shop =
+      dealerMeQ.data?.shopName ?? dealerMeQ.data?.shop_name ?? 'My shop'
+    try {
+      if (!connected) {
+        toast.error('Chat is not connected yet. Wait a moment and try again.')
+        return
+      }
+      const conv = await apiJson('/conversations/support', { method: 'POST' })
+      await sendMessage(
+        conv.id,
+        `Hi, I'm ${shop} and I've reached my listing limit of ${lim} parts. I'd like to request an upgrade.`,
+        null,
+        null,
+        null,
+      )
+      navigate(`/messages/${conv.id}`)
+      toast.success('Message sent to support')
+    } catch (err) {
+      toast.error(err.message || 'Could not open support chat')
+    }
   }
 
   return (
@@ -179,6 +222,18 @@ export function PartFormPage() {
         <h1 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-slate-100">{isEdit ? 'Edit part' : 'New part'}</h1>
         <p className="text-slate-600 dark:text-slate-400">Describe the part, set pricing, and upload photos buyers can trust.</p>
       </div>
+
+      {listingLimitHit != null ? (
+        <div className="rounded-xl border border-amber-200 bg-amber-50/90 p-4 dark:border-amber-800 dark:bg-amber-950/40">
+          <p className="text-sm font-medium text-amber-900 dark:text-amber-200">
+            You&apos;ve reached your listing limit of {listingLimitHit} parts (until your shop is verified). Contact
+            admin to request more.
+          </p>
+          <Button type="button" variant="outline" className="mt-3" onClick={handleRequestListingUpgrade}>
+            Request upgrade via chat
+          </Button>
+        </div>
+      ) : null}
 
       <Card className="border-slate-200/80 shadow-sm transition-shadow hover:shadow-md">
         <CardHeader className="border-b border-slate-100 bg-slate-50/50 pb-4">
@@ -260,6 +315,15 @@ export function PartFormPage() {
                       <Input type="number" {...register('quantity')} />
                     </div>
                   </div>
+                  <label className="mt-4 flex cursor-pointer items-start gap-3 rounded-lg border border-slate-200 bg-slate-50/50 p-3 dark:border-slate-700 dark:bg-slate-800/50">
+                    <input type="checkbox" className="mt-1 h-4 w-4 rounded border-slate-300 text-brand-600" {...register('is_negotiable')} />
+                    <span className="text-sm text-slate-700 dark:text-slate-300">
+                      <span className="font-medium">Price is negotiable</span>
+                      <span className="mt-0.5 block text-xs text-slate-500 dark:text-slate-400">
+                        Buyers can send you a price offer in chat.
+                      </span>
+                    </span>
+                  </label>
                 </section>
 
                 <section className="space-y-4">

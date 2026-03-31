@@ -85,13 +85,17 @@ export function ChatProvider({ children }) {
     }
   }, [token, user])
 
-  const sendMessage = useCallback((conversationId, body, attachmentUrl, attachmentType, replyToId) => {
+  const sendMessage = useCallback((conversationId, body, attachmentUrl, attachmentType, replyToId, offerPayload) => {
     return new Promise((resolve, reject) => {
       if (!socketRef.current?.connected) return reject(new Error('Not connected'))
       const payload = { conversationId, body }
       if (attachmentUrl && attachmentType) {
         payload.attachmentUrl = attachmentUrl
         payload.attachmentType = attachmentType
+      }
+      if (attachmentType === 'offer' && offerPayload) {
+        payload.attachmentType = 'offer'
+        payload.payload = offerPayload
       }
       if (replyToId) {
         payload.replyToId = replyToId

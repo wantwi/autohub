@@ -6,6 +6,7 @@ import { HttpError } from '../../lib/httpError.js';
 import { keysToCamel } from '../../lib/format.js';
 import { parsePagination } from '../../lib/pagination.js';
 import { normalizePhone } from '../../lib/phone.js';
+import { createNotification } from '../../services/notifyInApp.js';
 
 const patchTechRequestSchema = z.object({
   status: z.enum(['accepted', 'declined', 'completed']),
@@ -84,6 +85,20 @@ const adminOnboardSchema = z.object({
 const adminOnboardingUpdateSchema = z.object({
   onboardingStatus: onboardingStatusSchema,
   onboardingNote: z.string().max(1000).optional().nullable(),
+});
+
+const techSelfRegisterSchema = z.object({
+  displayName: z.string().min(1).max(255),
+  phoneBusiness: z.string().max(30).optional().nullable(),
+  specializations: z.array(specializationSchema).min(1),
+  serviceMode: serviceModeSchema.optional(),
+  description: z.string().max(5000).optional().nullable(),
+  locationText: z.string().max(500).optional().nullable(),
+  lat: z.coerce.number().optional().nullable(),
+  lng: z.coerce.number().optional().nullable(),
+  operatingHours: z.record(z.string(), z.string()).optional().nullable(),
+  openOnHolidays: z.coerce.boolean().optional().default(false),
+  bannerUrl: z.string().url().optional().nullable(),
 });
 
 const adminEditTechnicianSchema = z.object({
@@ -590,6 +605,72 @@ router.patch('/:id/verify', requireAuth, requireRole('admin'), async (req, res, 
     );
     if (!rows.length) throw new HttpError(404, 'NOT_FOUND', 'Technician not found');
     res.json({ data: keysToCamel(rows[0]) });
+  } catch (e) {
+    next(e);
+  }
+});
+
+router.get('/register/status', requireAuth, async (req, res, next) => {
+  try {
+    const pool = getPool();
+    const { rows } = await pool.query(`SELECT * FROM technicians WHERE user_id = $1`, [req.user.id]);
+    res.json({ data: rows.length ? keysToCamel(rows[0]) : null });
+  } catch (e) {
+    next(e);
+  }
+});
+
+router.post('/register', requireAuth, async (req, res, next) => {
+  try {
+    if (req.user.role !== 'buyer') {
+      throw new HttpError(403, 'FORBIDDEN', 'Only buyers can apply to become a technician');
+    }
+    const body = techSelfRegisterSchema.parse(req.body);
+    const pool = getPool();
+
+    const dupDealer = await pool.query(`SELECT 1 FROM dealers WHERE user_id = $1`, [req.user.id]);
+    if (dupDealer.rows.length) {
+      throw new HttpError(409, 'ALREADY_DEALER', 'You already have a dealer profile');
+    }
+
+    const existing = await pool.query(`SELECT id FROM technicians WHERE user_id = $1`, [req.user.id]);
+    if (existing.rows.length) {
+      throw new HttpError(409, 'ALREADY_REGISTERED', 'Technician application already submitted');
+    }
+
+    const { rows } = await pool.query(
+      `INSERT INTO technicians (
+         user_id, display_name, phone_business, specializations, description, location_text, lat, lng,
+         service_mode, operating_hours, open_on_holidays, banner_url,
+         onboarding_status, onboarding_note, onboarded_by_user_id, onboarded_at
+       ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,'pending',null,null,null) RETURNING *`,
+      [
+        req.user.id,
+        body.displayName,
+        body.phoneBusiness ?? null,
+        body.specializations,
+        body.description ?? null,
+        body.locationText ?? null,
+        body.lat ?? null,
+        body.lng ?? null,
+        body.serviceMode ?? 'both',
+        body.operatingHours ?? null,
+        body.openOnHolidays ?? false,
+        body.bannerUrl ?? null,
+      ],
+    );
+
+    const { rows: admins } = await pool.query(`SELECT id FROM users WHERE role = 'admin'`);
+    for (const a of admins) {
+      createNotification(a.id, {
+        type: 'technician_onboarding',
+        title: 'New technician application',
+        body: `${body.displayName} applied to join as a service provider.`,
+        link: '/admin/onboarding',
+      }).catch(() => {});
+    }
+
+    res.status(201).json({ data: keysToCamel(rows[0]) });
   } catch (e) {
     next(e);
   }

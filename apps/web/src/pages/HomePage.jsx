@@ -116,6 +116,16 @@ export function HomePage() {
               </Link>
             </Button>
           </div>
+          <p className="mt-6 text-center text-xs text-slate-400 md:text-left">
+            Selling parts or offering repair services? Start with an account:{' '}
+            <Link to="/login?intent=dealer" className="font-medium text-brand-300 underline-offset-2 hover:underline">
+              List as a dealer
+            </Link>
+            {' · '}
+            <Link to="/login?intent=technician" className="font-medium text-brand-300 underline-offset-2 hover:underline">
+              Join as a technician
+            </Link>
+          </p>
         </div>
       </section>
 

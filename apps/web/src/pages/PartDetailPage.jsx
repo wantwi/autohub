@@ -1,11 +1,12 @@
 import { useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useMutation, useQuery } from '@tanstack/react-query'
-import { Lock, MapPin, MessageSquare, Package, Phone, Star, Wrench } from 'lucide-react'
+import { Lock, MapPin, MessageSquare, Package, Phone, Star, Tag, Wrench } from 'lucide-react'
 import { toast } from 'sonner'
 import { apiJson } from '@/lib/api'
 import { normalizeList } from '@/lib/normalize'
 import { useAuthStore } from '@/stores/authStore'
+import { useChatContext } from '@/providers/ChatProvider'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -13,13 +14,20 @@ import { VerifiedBadge } from '@/components/VerifiedBadge'
 import { LoadingSpinner } from '@/components/LoadingSpinner'
 import { EmptyState } from '@/components/EmptyState'
 import { PartCard } from '@/components/PartCard'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Modal, ModalBody, ModalFooter, ModalHeader } from '@/components/ui/modal'
 import { cn } from '@/lib/utils'
 
 export function PartDetailPage() {
   const { id } = useParams()
   const user = useAuthStore((s) => s.user)
   const navigate = useNavigate()
+  const { sendMessage, connected } = useChatContext()
   const [imageIndex, setImageIndex] = useState(0)
+  const [offerOpen, setOfferOpen] = useState(false)
+  const [offerPrice, setOfferPrice] = useState('')
+  const [offerNote, setOfferNote] = useState('')
 
   const partQ = useQuery({
     queryKey: ['part', id],
@@ -38,6 +46,33 @@ export function PartDetailPage() {
       apiJson('/conversations', { method: 'POST', body: JSON.stringify(body) }),
     onSuccess: (conv) => navigate(`/messages/${conv.id}`),
     onError: (e) => toast.error(e.message),
+  })
+
+  const offerMut = useMutation({
+    mutationFn: async ({ dealerId, partId, partName, partPrice, offerPrice: op, note }) => {
+      if (!connected) throw new Error('Chat is not connected. Please wait a moment and try again.')
+      const price = Number(op)
+      if (!Number.isFinite(price) || price <= 0) throw new Error('Enter a valid offer amount.')
+      const conv = await apiJson('/conversations', {
+        method: 'POST',
+        body: JSON.stringify({ dealerId, partId }),
+      })
+      await sendMessage(conv.id, note || null, null, 'offer', null, {
+        partId,
+        partName,
+        originalPrice: Number(partPrice),
+        offerPrice: price,
+      })
+      return conv.id
+    },
+    onSuccess: (convId) => {
+      setOfferOpen(false)
+      setOfferPrice('')
+      setOfferNote('')
+      navigate(`/messages/${convId}`)
+      toast.success('Offer sent')
+    },
+    onError: (e) => toast.error(e.message || 'Could not send offer'),
   })
 
   const part = partQ.data
@@ -118,9 +153,16 @@ export function PartDetailPage() {
               </Badge>
             ) : null}
           </div>
-          <p className="text-3xl font-bold tracking-tight text-brand-700 dark:text-brand-400">
-            GHS {Number(part.price).toLocaleString()}
-          </p>
+          <div className="flex flex-wrap items-center gap-3">
+            <p className="text-3xl font-bold tracking-tight text-brand-700 dark:text-brand-400">
+              GHS {Number(part.price).toLocaleString()}
+            </p>
+            {(part.isNegotiable ?? part.is_negotiable) ? (
+              <Badge variant="secondary" className="rounded-lg px-2.5 py-0.5 text-xs font-semibold">
+                Negotiable
+              </Badge>
+            ) : null}
+          </div>
 
           <Card className="border-slate-200/80 shadow-sm transition-shadow duration-300 hover:shadow-md dark:border-slate-700">
             <CardHeader className="pb-2">
@@ -184,6 +226,18 @@ export function PartDetailPage() {
                 <MessageSquare className="h-4 w-4" />
                 {messageMut.isPending ? 'Opening...' : 'Message dealer'}
               </Button>
+              {(part.isNegotiable ?? part.is_negotiable) ? (
+                <Button
+                  variant="default"
+                  size="lg"
+                  className="gap-2 bg-amber-600 hover:bg-amber-700 dark:bg-amber-600 dark:hover:bg-amber-500"
+                  disabled={offerMut.isPending}
+                  onClick={() => setOfferOpen(true)}
+                >
+                  <Tag className="h-4 w-4" />
+                  Make an offer
+                </Button>
+              ) : null}
               {phoneDigits && (
                 <Button asChild variant="outline" size="lg" className="gap-2">
                   <a href={`tel:${phoneDigits}`}>
@@ -246,6 +300,64 @@ export function PartDetailPage() {
           <p className="mt-4 text-sm text-slate-600 dark:text-slate-400">No other listings matched for comparison yet.</p>
         ) : null}
       </section>
+
+      <Modal open={offerOpen} onClose={() => !offerMut.isPending && setOfferOpen(false)} className="max-w-md">
+        <ModalHeader>
+          <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Make an offer</h2>
+          <p className="text-sm text-slate-600 dark:text-slate-400">
+            Your offer will be sent in chat with the dealer for <span className="font-medium">{part.name}</span>.
+          </p>
+        </ModalHeader>
+        <ModalBody className="space-y-4">
+          <div className="rounded-lg border border-slate-200 bg-slate-50/80 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-800/80">
+            <p className="text-slate-500 dark:text-slate-400">Listed price</p>
+            <p className="font-semibold text-slate-900 dark:text-slate-100">GHS {Number(part.price).toLocaleString()}</p>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="offer-price">Your offer (GHS)</Label>
+            <Input
+              id="offer-price"
+              type="number"
+              step="0.01"
+              min="0"
+              value={offerPrice}
+              onChange={(e) => setOfferPrice(e.target.value)}
+              placeholder="e.g. 450"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="offer-note">Message (optional)</Label>
+            <textarea
+              id="offer-note"
+              className="min-h-[80px] w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900"
+              value={offerNote}
+              onChange={(e) => setOfferNote(e.target.value)}
+              placeholder="Add context for the dealer…"
+            />
+          </div>
+        </ModalBody>
+        <ModalFooter>
+          <Button type="button" variant="ghost" onClick={() => setOfferOpen(false)} disabled={offerMut.isPending}>
+            Cancel
+          </Button>
+          <Button
+            type="button"
+            disabled={offerMut.isPending}
+            onClick={() =>
+              offerMut.mutate({
+                dealerId: dealer.id,
+                partId: part.id,
+                partName: part.name,
+                partPrice: part.price,
+                offerPrice,
+                note: offerNote.trim() || null,
+              })
+            }
+          >
+            {offerMut.isPending ? 'Sending…' : 'Send offer'}
+          </Button>
+        </ModalFooter>
+      </Modal>
     </div>
   )
 }

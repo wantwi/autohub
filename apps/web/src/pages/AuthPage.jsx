@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Link, useLocation, useNavigate } from 'react-router-dom'
+import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { yupResolver } from '@hookform/resolvers/yup'
 import * as yup from 'yup'
-import { Car } from 'lucide-react'
+import { Car, Store, Wrench } from 'lucide-react'
 import { apiFetch } from '@/lib/api'
 import { getEnv } from '@/lib/env'
 import { useAuthStore } from '@/stores/authStore'
@@ -23,9 +23,64 @@ function isNewUser(user) {
   return !name || name === 'AutoHub User'
 }
 
+/**
+ * @param {Record<string, unknown> | null | undefined} user
+ * @param {{ pathname: string, search: string, state?: { from?: { pathname?: string } } }} loc
+ */
+function resolvePostLoginDestination(user, loc) {
+  const params = new URLSearchParams(loc.search)
+  const intent = params.get('intent')
+  const nextParam = params.get('next')
+  const fromPath = loc.state?.from?.pathname
+
+  const intentPath =
+    intent === 'dealer' ? '/dealer/register' : intent === 'technician' ? '/technician/register' : null
+  const nextPath =
+    nextParam && nextParam.startsWith('/') && !nextParam.startsWith('//') ? nextParam : null
+
+  const explicit = fromPath || nextPath || intentPath
+  const role = user?.role
+
+  if (explicit === '/dealer/register') {
+    if (role === 'dealer') return { path: '/dealer/dashboard', toast: 'welcome_back' }
+    if (role === 'admin') return { path: '/admin/dashboard', toast: 'welcome_back' }
+  }
+  if (explicit === '/technician/register') {
+    if (role === 'technician') return { path: '/technician/dashboard', toast: 'welcome_back' }
+    if (role === 'admin') return { path: '/admin/dashboard', toast: 'welcome_back' }
+  }
+
+  if (explicit === '/dealer/register' || explicit === '/technician/register') {
+    return { path: explicit, toast: 'seller_onboarding' }
+  }
+
+  if (explicit && explicit !== '/login') {
+    if (isNewUser(user)) {
+      return { path: '/profile', toast: 'new_user' }
+    }
+    return { path: explicit, toast: 'welcome_back' }
+  }
+
+  if (isNewUser(user)) {
+    return { path: '/profile', toast: 'new_user' }
+  }
+
+  switch (role) {
+    case 'dealer':
+      return { path: '/dealer/dashboard', toast: 'welcome_back' }
+    case 'technician':
+      return { path: '/technician/dashboard', toast: 'welcome_back' }
+    case 'admin':
+      return { path: '/admin/dashboard', toast: 'welcome_back' }
+    default:
+      return { path: '/dashboard', toast: 'welcome_back' }
+  }
+}
+
 export function AuthPage() {
   const navigate = useNavigate()
   const location = useLocation()
+  const [searchParams] = useSearchParams()
   const setAuth = useAuthStore((s) => s.setAuth)
   const [step, setStep] = useState('phone')
   const [phone, setPhone] = useState('')
@@ -33,30 +88,29 @@ export function AuthPage() {
   const [busy, setBusy] = useState(false)
   const googleBtnRef = useRef(null)
 
-  const fromPath = location.state?.from?.pathname
   const { googleClientId } = getEnv()
 
-  function roleRedirect(role) {
-    if (fromPath) return fromPath
-    switch (role) {
-      case 'dealer':     return '/dealer/dashboard'
-      case 'technician': return '/technician/dashboard'
-      case 'admin':      return '/admin'
-      default:           return '/dashboard'
-    }
-  }
+  const intent = searchParams.get('intent')
 
-  const completeLogin = useCallback((token, user) => {
-    setAuth(token, user)
-    const dest = roleRedirect(user?.role)
-    if (isNewUser(user)) {
-      toast.success('Welcome! Please complete your profile.')
-      navigate('/profile', { replace: true })
-    } else {
-      toast.success('Welcome back')
-      navigate(dest, { replace: true })
-    }
-  }, [setAuth, navigate, fromPath])
+  const completeLogin = useCallback(
+    (token, user) => {
+      setAuth(token, user)
+      const { path, toast: toastKey } = resolvePostLoginDestination(user, location)
+      if (toastKey === 'seller_onboarding') {
+        toast.success(
+          path === '/technician/register'
+            ? 'Welcome! Complete your technician application next.'
+            : 'Welcome! Complete your dealer application next.',
+        )
+      } else if (toastKey === 'new_user') {
+        toast.success('Welcome! Please complete your profile.')
+      } else {
+        toast.success('Welcome back')
+      }
+      navigate(path, { replace: true })
+    },
+    [setAuth, navigate, location],
+  )
 
   useEffect(() => {
     if (!googleClientId) return
@@ -204,8 +258,36 @@ export function AuthPage() {
 
         <Card className="animate-fade-in-up border-slate-200/80 shadow-xl shadow-slate-200/50 dark:border-slate-700/80 dark:shadow-slate-900/50" style={{ animationDelay: '60ms' }}>
           <CardHeader className="space-y-1 pb-2 text-center sm:text-left">
-            <CardTitle className="text-2xl font-bold tracking-tight">Sign in to AutoHub</CardTitle>
-            <CardDescription className="text-base">Dealers &amp; technicians sign in with phone OTP. Buyers use Google.</CardDescription>
+            {intent === 'dealer' ? (
+              <>
+                <CardTitle className="text-2xl font-bold tracking-tight">List parts on AutoHub</CardTitle>
+                <CardDescription className="text-base">
+                  Create your account with phone OTP, then complete your shop profile. Already selling? Sign in below.
+                </CardDescription>
+              </>
+            ) : intent === 'technician' ? (
+              <>
+                <CardTitle className="text-2xl font-bold tracking-tight">Offer services on AutoHub</CardTitle>
+                <CardDescription className="text-base">
+                  Create your account with phone OTP, then submit your technician application. Already registered? Sign in below.
+                </CardDescription>
+              </>
+            ) : (
+              <>
+                <CardTitle className="text-2xl font-bold tracking-tight">Sign in to AutoHub</CardTitle>
+                <CardDescription className="text-base">
+                  Dealers &amp; technicians sign in with phone OTP. Buyers use Google. New here?{' '}
+                  <Link to="/login?intent=dealer" className="font-medium text-brand-700 underline-offset-4 hover:underline dark:text-brand-400">
+                    List parts
+                  </Link>
+                  {' · '}
+                  <Link to="/login?intent=technician" className="font-medium text-brand-700 underline-offset-4 hover:underline dark:text-brand-400">
+                    Offer services
+                  </Link>
+                  .
+                </CardDescription>
+              </>
+            )}
           </CardHeader>
           <CardContent className="space-y-8 pt-2">
             <div className="relative min-h-[1px]">
@@ -259,11 +341,38 @@ export function AuthPage() {
                 Google Sign-In (not configured)
               </Button>
             )}
-            <p className="text-center text-sm text-slate-600 dark:text-slate-400">
-              <Link to="/" className="font-medium text-brand-700 underline-offset-4 transition-colors hover:text-brand-800 hover:underline dark:text-brand-400 dark:hover:text-brand-300">
-                Back home
-              </Link>
-            </p>
+            <div className="space-y-3 text-center text-sm text-slate-600 dark:text-slate-400">
+              {intent === 'dealer' || intent === 'technician' ? (
+                <p>
+                  Wrong path?{' '}
+                  <Link to="/login" className="font-medium text-brand-700 underline-offset-4 hover:underline dark:text-brand-400">
+                    Standard sign-in
+                  </Link>
+                  {' · '}
+                  <Link
+                    to={intent === 'dealer' ? '/login?intent=technician' : '/login?intent=dealer'}
+                    className="inline-flex items-center justify-center gap-1 font-medium text-brand-700 underline-offset-4 hover:underline dark:text-brand-400"
+                  >
+                    {intent === 'dealer' ? (
+                      <>
+                        <Wrench className="h-3.5 w-3.5" aria-hidden />
+                        Become a technician
+                      </>
+                    ) : (
+                      <>
+                        <Store className="h-3.5 w-3.5" aria-hidden />
+                        Become a dealer
+                      </>
+                    )}
+                  </Link>
+                </p>
+              ) : null}
+              <p>
+                <Link to="/" className="font-medium text-brand-700 underline-offset-4 transition-colors hover:text-brand-800 hover:underline dark:text-brand-400 dark:hover:text-brand-300">
+                  Back home
+                </Link>
+              </p>
+            </div>
           </CardContent>
         </Card>
       </div>

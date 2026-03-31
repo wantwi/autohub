@@ -54,16 +54,33 @@ export function registerChatHandlers(io) {
     const userId = socket.user.id;
     socket.join(`user:${userId}`);
 
-    socket.on('send_message', async ({ conversationId, body, attachmentUrl, attachmentType, replyToId }, ack) => {
+    socket.on(
+      'send_message',
+      async ({ conversationId, body, attachmentUrl, attachmentType, replyToId, payload: clientPayload }, ack) => {
       const hasText = body?.trim();
       const hasAttachment = attachmentUrl && attachmentType;
-      if (!conversationId || (!hasText && !hasAttachment)) {
-        return ack?.({ error: 'conversationId and (body or attachment) are required' });
+      const isOffer = attachmentType === 'offer' && clientPayload && typeof clientPayload === 'object';
+      if (!conversationId || (!hasText && !hasAttachment && !isOffer)) {
+        return ack?.({ error: 'conversationId and (body or attachment or offer) are required' });
       }
 
-      const VALID_TYPES = ['image', 'video', 'audio', 'document'];
-      if (hasAttachment && !VALID_TYPES.includes(attachmentType)) {
+      const VALID_TYPES = ['image', 'video', 'audio', 'document', 'offer'];
+      if (attachmentType && !VALID_TYPES.includes(attachmentType)) {
         return ack?.({ error: 'Invalid attachmentType' });
+      }
+      if (hasAttachment && !['image', 'video', 'audio', 'document'].includes(attachmentType)) {
+        return ack?.({ error: 'Invalid attachmentType' });
+      }
+      if (isOffer) {
+        const p = clientPayload;
+        if (
+          p.partId == null ||
+          p.offerPrice == null ||
+          p.originalPrice == null ||
+          !p.partName
+        ) {
+          return ack?.({ error: 'Offer payload must include partId, partName, offerPrice, originalPrice' });
+        }
       }
 
       const pool = getPool();
@@ -84,10 +101,19 @@ export function registerChatHandlers(io) {
           if (replyRows.length) validReplyToId = replyToId;
         }
 
+        const payloadJson = isOffer ? JSON.stringify(clientPayload) : null;
         const { rows } = await pool.query(
-          `INSERT INTO messages (conversation_id, sender_id, body, attachment_url, attachment_type, reply_to_id)
-           VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
-          [conversationId, userId, hasText ? body.trim() : null, hasAttachment ? attachmentUrl : null, hasAttachment ? attachmentType : null, validReplyToId],
+          `INSERT INTO messages (conversation_id, sender_id, body, attachment_url, attachment_type, reply_to_id, payload)
+           VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb) RETURNING *`,
+          [
+            conversationId,
+            userId,
+            hasText ? body.trim() : null,
+            hasAttachment ? attachmentUrl : null,
+            isOffer ? 'offer' : hasAttachment ? attachmentType : null,
+            validReplyToId,
+            payloadJson,
+          ],
         );
         const msg = keysToCamel(rows[0]);
 
@@ -116,7 +142,11 @@ export function registerChatHandlers(io) {
         const senderName = await pool
           .query('SELECT full_name FROM users WHERE id = $1', [userId])
           .then((r) => r.rows[0]?.full_name || 'Someone');
-        const preview = hasText ? body.trim().slice(0, 80) : `Sent ${attachmentType || 'a file'}`;
+        const preview = isOffer
+          ? `Offer: GHS ${Number(clientPayload.offerPrice).toLocaleString()}`
+          : hasText
+            ? body.trim().slice(0, 80)
+            : `Sent ${attachmentType || 'a file'}`;
 
         for (const pid of convInfo.participants) {
           if (pid === userId) continue;
@@ -130,7 +160,8 @@ export function registerChatHandlers(io) {
         console.error('send_message error:', err);
         ack?.({ error: 'Server error' });
       }
-    });
+    },
+    );
 
     socket.on('react_message', async ({ messageId, emoji }, ack) => {
       if (!messageId || !emoji) {

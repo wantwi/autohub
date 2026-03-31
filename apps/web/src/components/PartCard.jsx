@@ -54,9 +54,16 @@ export function PartCard({ part, className }) {
             {part.name}
           </h3>
 
-          <p className="text-xl font-bold tracking-tight text-slate-900 dark:text-slate-100">
-            GHS {Number(part.price).toLocaleString()}
-          </p>
+          <div className="flex flex-wrap items-baseline gap-2">
+            <p className="text-xl font-bold tracking-tight text-slate-900 dark:text-slate-100">
+              GHS {Number(part.price).toLocaleString()}
+            </p>
+            {(part.isNegotiable ?? part.is_negotiable) ? (
+              <span className="rounded-md bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-900 dark:bg-amber-900/40 dark:text-amber-300">
+                Negotiable
+              </span>
+            ) : null}
+          </div>
 
           <div className="mt-auto flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
             <span className="truncate font-medium">{dealerName}</span>

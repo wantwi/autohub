@@ -4,6 +4,7 @@ import { requireAuth } from '../../middleware/auth.js';
 import { getPool } from '../../db/pool.js';
 import { HttpError } from '../../lib/httpError.js';
 import { keysToCamel } from '../../lib/format.js';
+import { createNotification } from '../../services/notifyInApp.js';
 
 const router = Router();
 
@@ -35,6 +36,53 @@ const createConversationSchema = z.object({
   partId: z.string().uuid().optional().nullable(),
 }).refine(d => d.dealerId || d.technicianId || d.buyerId, {
   message: 'Either dealerId, technicianId, or buyerId is required',
+});
+
+/**
+ * Dealer requests a support chat with admin (buyer_id = admin, dealer_id = dealer shop).
+ */
+router.post('/support', requireAuth, async (req, res, next) => {
+  try {
+    const pool = getPool();
+    const dealerR = await pool.query(`SELECT id, shop_name, user_id FROM dealers WHERE user_id = $1`, [
+      req.user.id,
+    ]);
+    if (!dealerR.rows.length) {
+      throw new HttpError(403, 'FORBIDDEN', 'Only dealers can open a support conversation');
+    }
+    const dealer = dealerR.rows[0];
+    const adminR = await pool.query(`SELECT id FROM users WHERE role = 'admin' LIMIT 1`);
+    if (!adminR.rows.length) {
+      throw new HttpError(503, 'NO_ADMIN', 'No admin account configured');
+    }
+    const adminId = adminR.rows[0].id;
+    const { rows: existing } = await pool.query(
+      `SELECT * FROM conversations
+       WHERE buyer_id = $1 AND dealer_id = $2 AND technician_id IS NULL AND part_id IS NULL`,
+      [adminId, dealer.id],
+    );
+    if (existing.length) {
+      return res.json({ data: keysToCamel(existing[0]) });
+    }
+    const { rows } = await pool.query(
+      `INSERT INTO conversations (buyer_id, dealer_id, part_id)
+       VALUES ($1, $2, NULL) RETURNING *`,
+      [adminId, dealer.id],
+    );
+    const conv = rows[0];
+    const { rows: admins } = await pool.query(`SELECT id FROM users WHERE role = 'admin'`);
+    for (const a of admins) {
+      createNotification(a.id, {
+        type: 'dealer_support',
+        title: 'Dealer support chat',
+        body: `${dealer.shop_name} opened a support conversation.`,
+        link: `/messages/${conv.id}`,
+      }).catch(() => {});
+    }
+    res.status(201).json({ data: keysToCamel(conv) });
+  } catch (e) {
+    next(e);
+  }
 });
 
 router.get('/', requireAuth, async (req, res, next) => {

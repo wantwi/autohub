@@ -562,6 +562,25 @@ router.patch('/admin/:id/onboarding', requireAuth, requireRole('admin'), async (
   }
 });
 
+const listingLimitSchema = z.object({
+  listingLimit: z.coerce.number().int().min(1).max(99999),
+});
+
+router.patch('/admin/:id/listing-limit', requireAuth, requireRole('admin'), async (req, res, next) => {
+  try {
+    const body = listingLimitSchema.parse(req.body);
+    const pool = getPool();
+    const { rows } = await pool.query(
+      `UPDATE dealers SET listing_limit = $1 WHERE id = $2 RETURNING *`,
+      [body.listingLimit, req.params.id],
+    );
+    if (!rows.length) throw new HttpError(404, 'NOT_FOUND', 'Dealer not found');
+    res.json({ data: keysToCamel(rows[0]) });
+  } catch (e) {
+    next(e);
+  }
+});
+
 const adminEditDealerSchema = z.object({
   fullName: z.string().min(1).max(255).optional(),
   phone: z.string().min(8).max(20).optional(),

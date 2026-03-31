@@ -76,6 +76,7 @@ const ATTACHMENT_PREVIEW_LABELS = {
   audio: 'Voice note',
   document: 'Document',
   part_card: 'Part enquiry',
+  offer: 'Offer',
 }
 
 function ReactionChips({ reactions, userId, onToggle }) {
