@@ -6,6 +6,7 @@ import { HttpError } from '../../lib/httpError.js';
 import { keysToCamel } from '../../lib/format.js';
 import { parsePagination } from '../../lib/pagination.js';
 import { normalizePhone } from '../../lib/phone.js';
+import { createNotification } from '../../services/notifyInApp.js';
 
 const patchTechRequestSchema = z.object({
   status: z.enum(['accepted', 'declined', 'completed']),
@@ -102,6 +103,77 @@ const adminEditTechnicianSchema = z.object({
   openOnHolidays: z.coerce.boolean().optional(),
   bannerUrl: z.string().url().optional().nullable(),
   onboardingStatus: onboardingStatusSchema.optional(),
+});
+
+const selfRegisterSchema = z.object({
+  displayName: z.string().min(1).max(255),
+  phoneBusiness: z.string().max(30).optional().nullable(),
+  specializations: z.array(specializationSchema).min(1),
+  serviceMode: serviceModeSchema.optional().default('both'),
+  description: z.string().max(5000).optional().nullable(),
+  locationText: z.string().max(500).optional().nullable(),
+  lat: z.coerce.number().optional().nullable(),
+  lng: z.coerce.number().optional().nullable(),
+  bannerUrl: z.string().url().optional().nullable(),
+});
+
+router.post('/register', requireAuth, async (req, res, next) => {
+  try {
+    const body = selfRegisterSchema.parse(req.body);
+    const pool = getPool();
+
+    const { rows: userRows } = await pool.query('SELECT role FROM users WHERE id = $1', [req.user.id]);
+    if (!userRows.length) throw new HttpError(404, 'NOT_FOUND', 'User not found');
+    if (userRows[0].role !== 'buyer') {
+      throw new HttpError(400, 'WRONG_ROLE', 'Only buyers can register as technicians');
+    }
+
+    const { rows: existing } = await pool.query('SELECT id FROM technicians WHERE user_id = $1', [req.user.id]);
+    if (existing.length) throw new HttpError(409, 'ALREADY_REGISTERED', 'You already have a technician profile');
+
+    const { rows } = await pool.query(
+      `INSERT INTO technicians (
+         user_id, display_name, phone_business, specializations, description,
+         location_text, lat, lng, service_mode, banner_url, onboarding_status
+       ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'pending') RETURNING *`,
+      [
+        req.user.id,
+        body.displayName,
+        body.phoneBusiness ?? null,
+        body.specializations,
+        body.description ?? null,
+        body.locationText ?? null,
+        body.lat ?? null,
+        body.lng ?? null,
+        body.serviceMode,
+        body.bannerUrl ?? null,
+      ],
+    );
+
+    const adminR = await pool.query(`SELECT id FROM users WHERE role = 'admin' LIMIT 1`);
+    if (adminR.rows.length) {
+      createNotification(adminR.rows[0].id, {
+        type: 'tech_registration',
+        title: 'New Technician Registration',
+        body: `${body.displayName} has applied to be a service provider.`,
+        link: '/admin/onboarding',
+      }).catch(() => {});
+    }
+
+    res.status(201).json({ data: keysToCamel(rows[0]) });
+  } catch (e) {
+    next(e);
+  }
+});
+
+router.get('/register/status', requireAuth, async (req, res, next) => {
+  try {
+    const pool = getPool();
+    const { rows } = await pool.query('SELECT * FROM technicians WHERE user_id = $1', [req.user.id]);
+    res.json({ data: rows.length ? keysToCamel(rows[0]) : null });
+  } catch (e) {
+    next(e);
+  }
 });
 
 router.get('/me/dashboard', requireAuth, loadTechProfile, async (req, res, next) => {

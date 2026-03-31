@@ -54,16 +54,17 @@ export function registerChatHandlers(io) {
     const userId = socket.user.id;
     socket.join(`user:${userId}`);
 
-    socket.on('send_message', async ({ conversationId, body, attachmentUrl, attachmentType, replyToId }, ack) => {
+    socket.on('send_message', async ({ conversationId, body, attachmentUrl, attachmentType, replyToId, payload: rawPayload }, ack) => {
       const hasText = body?.trim();
       const hasAttachment = attachmentUrl && attachmentType;
-      if (!conversationId || (!hasText && !hasAttachment)) {
+      const isOffer = attachmentType === 'offer' && rawPayload;
+      if (!conversationId || (!hasText && !hasAttachment && !isOffer)) {
         return ack?.({ error: 'conversationId and (body or attachment) are required' });
       }
 
-      const VALID_TYPES = ['image', 'video', 'audio', 'document'];
+      const VALID_TYPES = ['image', 'video', 'audio', 'document', 'offer', 'location'];
       if (hasAttachment && !VALID_TYPES.includes(attachmentType)) {
-        return ack?.({ error: 'Invalid attachmentType' });
+        if (!isOffer) return ack?.({ error: 'Invalid attachmentType' });
       }
 
       const pool = getPool();
@@ -84,10 +85,12 @@ export function registerChatHandlers(io) {
           if (replyRows.length) validReplyToId = replyToId;
         }
 
+        const msgAttachType = isOffer ? 'offer' : (hasAttachment ? attachmentType : null);
+        const msgPayload = isOffer ? JSON.stringify(rawPayload) : null;
         const { rows } = await pool.query(
-          `INSERT INTO messages (conversation_id, sender_id, body, attachment_url, attachment_type, reply_to_id)
-           VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
-          [conversationId, userId, hasText ? body.trim() : null, hasAttachment ? attachmentUrl : null, hasAttachment ? attachmentType : null, validReplyToId],
+          `INSERT INTO messages (conversation_id, sender_id, body, attachment_url, attachment_type, reply_to_id, payload)
+           VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
+          [conversationId, userId, hasText ? body.trim() : null, hasAttachment ? attachmentUrl : null, msgAttachType, validReplyToId, msgPayload],
         );
         const msg = keysToCamel(rows[0]);
 
@@ -116,7 +119,9 @@ export function registerChatHandlers(io) {
         const senderName = await pool
           .query('SELECT full_name FROM users WHERE id = $1', [userId])
           .then((r) => r.rows[0]?.full_name || 'Someone');
-        const preview = hasText ? body.trim().slice(0, 80) : `Sent ${attachmentType || 'a file'}`;
+        const preview = isOffer
+          ? `Made an offer: GHS ${rawPayload?.offerPrice ?? '?'}`
+          : hasText ? body.trim().slice(0, 80) : `Sent ${attachmentType || 'a file'}`;
 
         for (const pid of convInfo.participants) {
           if (pid === userId) continue;

@@ -1,12 +1,14 @@
 import { useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useMutation, useQuery } from '@tanstack/react-query'
-import { Lock, MapPin, MessageSquare, Package, Phone, Star, Wrench } from 'lucide-react'
+import { HandCoins, Lock, MapPin, MessageSquare, Package, Phone, Star, Wrench, X } from 'lucide-react'
 import { toast } from 'sonner'
 import { apiJson } from '@/lib/api'
 import { normalizeList } from '@/lib/normalize'
 import { useAuthStore } from '@/stores/authStore'
+import { useChatContext } from '@/providers/ChatProvider'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { VerifiedBadge } from '@/components/VerifiedBadge'
@@ -20,6 +22,11 @@ export function PartDetailPage() {
   const user = useAuthStore((s) => s.user)
   const navigate = useNavigate()
   const [imageIndex, setImageIndex] = useState(0)
+  const [showOfferModal, setShowOfferModal] = useState(false)
+  const [offerPrice, setOfferPrice] = useState('')
+  const [offerMsg, setOfferMsg] = useState('')
+  const [sendingOffer, setSendingOffer] = useState(false)
+  const { sendMessage } = useChatContext()
 
   const partQ = useQuery({
     queryKey: ['part', id],
@@ -118,9 +125,16 @@ export function PartDetailPage() {
               </Badge>
             ) : null}
           </div>
-          <p className="text-3xl font-bold tracking-tight text-brand-700 dark:text-brand-400">
-            GHS {Number(part.price).toLocaleString()}
-          </p>
+          <div className="flex flex-wrap items-baseline gap-3">
+            <p className="text-3xl font-bold tracking-tight text-brand-700 dark:text-brand-400">
+              GHS {Number(part.price).toLocaleString()}
+            </p>
+            {(part.isNegotiable ?? part.is_negotiable) ? (
+              <span className="rounded-full bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-700 ring-1 ring-amber-200/80 dark:bg-amber-900/25 dark:text-amber-400 dark:ring-amber-700/40">
+                Negotiable
+              </span>
+            ) : null}
+          </div>
 
           <Card className="border-slate-200/80 shadow-sm transition-shadow duration-300 hover:shadow-md dark:border-slate-700">
             <CardHeader className="pb-2">
@@ -184,6 +198,16 @@ export function PartDetailPage() {
                 <MessageSquare className="h-4 w-4" />
                 {messageMut.isPending ? 'Opening...' : 'Message dealer'}
               </Button>
+              {(part.isNegotiable ?? part.is_negotiable) && (
+                <Button
+                  size="lg"
+                  className="gap-2 bg-amber-600 text-white shadow-sm hover:bg-amber-700"
+                  onClick={() => { setOfferPrice(''); setOfferMsg(''); setShowOfferModal(true) }}
+                >
+                  <HandCoins className="h-4 w-4" />
+                  Make an Offer
+                </Button>
+              )}
               {phoneDigits && (
                 <Button asChild variant="outline" size="lg" className="gap-2">
                   <a href={`tel:${phoneDigits}`}>
@@ -246,6 +270,91 @@ export function PartDetailPage() {
           <p className="mt-4 text-sm text-slate-600 dark:text-slate-400">No other listings matched for comparison yet.</p>
         ) : null}
       </section>
+
+      {showOfferModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm" onClick={() => setShowOfferModal(false)}>
+          <div
+            className="relative mx-4 w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl dark:border-slate-700 dark:bg-slate-900"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button type="button" onClick={() => setShowOfferModal(false)} className="absolute right-3 top-3 rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-800 dark:hover:text-slate-300">
+              <X className="h-5 w-5" />
+            </button>
+            <div className="mb-4 flex items-center gap-2.5">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
+                <HandCoins className="h-5 w-5" />
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Make an Offer</h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400">Your offer will be sent to the dealer in chat.</p>
+              </div>
+            </div>
+
+            <div className="mb-3 rounded-lg border border-slate-100 bg-slate-50/80 p-3 dark:border-slate-800 dark:bg-slate-800/50">
+              <p className="text-sm font-medium text-slate-800 dark:text-slate-200">{part.name}</p>
+              <p className="mt-0.5 text-sm text-slate-500 dark:text-slate-400">Listed at <span className="font-semibold text-slate-700 dark:text-slate-300">GHS {Number(part.price).toLocaleString()}</span></p>
+            </div>
+
+            <div className="space-y-3">
+              <div>
+                <label className="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-300">Your offer (GHS)</label>
+                <Input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  placeholder="Enter your offer price"
+                  value={offerPrice}
+                  onChange={(e) => setOfferPrice(e.target.value)}
+                  autoFocus
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-300">Message (optional)</label>
+                <textarea
+                  rows={2}
+                  className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm shadow-sm placeholder:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/25 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+                  placeholder="Add a note for the dealer..."
+                  value={offerMsg}
+                  onChange={(e) => setOfferMsg(e.target.value)}
+                />
+              </div>
+            </div>
+
+            <Button
+              className="mt-4 w-full gap-2 bg-amber-600 text-white hover:bg-amber-700"
+              disabled={!offerPrice || Number(offerPrice) <= 0 || sendingOffer}
+              onClick={async () => {
+                setSendingOffer(true)
+                try {
+                  const conv = await apiJson('/conversations', {
+                    method: 'POST',
+                    body: JSON.stringify({ dealerId: dealer.id, partId: part.id }),
+                  })
+                  const convId = conv.id || conv.data?.id
+                  const offerPayload = {
+                    partId: part.id,
+                    partName: part.name,
+                    originalPrice: Number(part.price),
+                    offerPrice: Number(offerPrice),
+                  }
+                  const msgBody = offerMsg.trim() || null
+                  await sendMessage(convId, msgBody, null, 'offer', null, offerPayload)
+                  setShowOfferModal(false)
+                  toast.success('Offer sent!')
+                  navigate(`/messages/${convId}`)
+                } catch (err) {
+                  toast.error(err.message || 'Failed to send offer')
+                } finally {
+                  setSendingOffer(false)
+                }
+              }}
+            >
+              <HandCoins className="h-4 w-4" />
+              {sendingOffer ? 'Sending...' : 'Send Offer'}
+            </Button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

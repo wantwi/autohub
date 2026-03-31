@@ -62,6 +62,7 @@ export function PartFormPage() {
   const navigate = useNavigate()
   const qc = useQueryClient()
   const [images, setImages] = useState([])
+  const [isNegotiable, setIsNegotiable] = useState(false)
   const categoriesQ = usePartCategories()
 
   const existingQ = useQuery({
@@ -119,9 +120,8 @@ export function PartFormPage() {
       year_to: yearTo,
       part_number: p.partNumber ?? p.part_number ?? '',
     })
-    // Sync gallery when loading an existing listing (server is source of truth).
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- reset local upload state from query
     setImages(p.images || [])
+    setIsNegotiable(Boolean(p.isNegotiable ?? p.is_negotiable))
   }, [existingQ.data, reset])
 
   const saveM = useMutation({
@@ -135,10 +135,17 @@ export function PartFormPage() {
       navigate('/dealer/parts')
     },
     onError: (e) => {
-      const code = e?.payload?.error?.code
+      const code = e?.payload?.error?.code || e?.code
       if (code === 'DEALER_NOT_APPROVED') {
         toast.error('Only approved dealers can publish parts. Complete or review your dealer application.')
         navigate('/dealer/register')
+        return
+      }
+      if (code === 'LISTING_LIMIT_REACHED') {
+        toast.error(e.message || 'Listing limit reached.', {
+          description: 'Message admin via chat to request a limit increase.',
+          duration: 8000,
+        })
         return
       }
       toast.error(e.message)
@@ -169,6 +176,7 @@ export function PartFormPage() {
       maxCompatibleYear: vals.year_to ? Number(vals.year_to) : undefined,
       images,
       partNumber: vals.part_number || undefined,
+      isNegotiable,
     })
   }
 
@@ -260,6 +268,15 @@ export function PartFormPage() {
                       <Input type="number" {...register('quantity')} />
                     </div>
                   </div>
+                  <label className="flex items-center gap-2.5 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={isNegotiable}
+                      onChange={(e) => setIsNegotiable(e.target.checked)}
+                      className="h-4 w-4 rounded border-slate-300 text-brand-600 focus:ring-brand-500 dark:border-slate-600 dark:bg-slate-800"
+                    />
+                    <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Price is negotiable</span>
+                  </label>
                 </section>
 
                 <section className="space-y-4">

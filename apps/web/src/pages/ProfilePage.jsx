@@ -2,7 +2,8 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useForm } from 'react-hook-form'
 import { yupResolver } from '@hookform/resolvers/yup'
 import * as yup from 'yup'
-import { Car, Phone, UserRound } from 'lucide-react'
+import { ArrowRight, Car, Phone, Store, UserRound, Wrench } from 'lucide-react'
+import { Link } from 'react-router-dom'
 import { apiJson } from '@/lib/api'
 import { useAuthStore } from '@/stores/authStore'
 import { normalizeList } from '@/lib/normalize'
@@ -225,6 +226,31 @@ export function ProfilePage() {
           </p>
         </CardContent>
       </Card>
+
+      {user?.role === 'buyer' && (
+        <Card className="border-brand-200/60 bg-gradient-to-br from-brand-50/80 to-white shadow-sm dark:border-brand-800/40 dark:from-brand-950/30 dark:to-slate-900">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-lg">Grow your business on AutoHub</CardTitle>
+            <CardDescription>Register as a dealer or technician to reach more customers.</CardDescription>
+          </CardHeader>
+          <CardContent className="flex flex-wrap gap-3">
+            <Button asChild variant="outline" className="gap-2">
+              <Link to="/dealer/register">
+                <Store className="h-4 w-4" />
+                Register as Dealer
+                <ArrowRight className="h-3 w-3" />
+              </Link>
+            </Button>
+            <Button asChild variant="outline" className="gap-2">
+              <Link to="/technician/register">
+                <Wrench className="h-4 w-4" />
+                Register as Technician
+                <ArrowRight className="h-3 w-3" />
+              </Link>
+            </Button>
+          </CardContent>
+        </Card>
+      )}
     </div>
   )
 }

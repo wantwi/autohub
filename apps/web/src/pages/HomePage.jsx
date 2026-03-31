@@ -12,6 +12,8 @@ import {
   ScanSearch,
   TruckIcon,
   PanelTop,
+  Store,
+  ArrowRight,
 } from 'lucide-react'
 import { apiJson } from '@/lib/api'
 import { normalizeList } from '@/lib/normalize'
@@ -277,6 +279,34 @@ export function HomePage() {
               </div>
             </div>
           ))}
+        </div>
+      </section>
+
+      <section
+        className="animate-fade-in-up rounded-2xl border border-brand-200/60 bg-gradient-to-r from-brand-50 to-brand-100/60 p-8 text-center dark:border-brand-800/40 dark:from-brand-950/30 dark:to-brand-900/20"
+        style={{ animationDelay: '350ms' }}
+      >
+        <h2 className="text-xl font-bold text-slate-900 dark:text-slate-100">
+          Grow your business on AutoHub
+        </h2>
+        <p className="mx-auto mt-2 max-w-lg text-sm text-slate-600 dark:text-slate-400">
+          List your parts or offer your repair services to car owners across Ghana. Register today and start connecting with customers.
+        </p>
+        <div className="mt-5 flex flex-wrap items-center justify-center gap-3">
+          <Button asChild className="gap-2 shadow-md shadow-brand-500/15">
+            <Link to="/dealer/register">
+              <Store className="h-4 w-4" />
+              Register as Dealer
+              <ArrowRight className="h-3 w-3" />
+            </Link>
+          </Button>
+          <Button asChild variant="outline" className="gap-2">
+            <Link to="/technician/register">
+              <Wrench className="h-4 w-4" />
+              Register as Technician
+              <ArrowRight className="h-3 w-3" />
+            </Link>
+          </Button>
         </div>
       </section>
     </div>
