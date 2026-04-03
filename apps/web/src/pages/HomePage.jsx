@@ -14,8 +14,6 @@ import {
   ScanSearch,
   TruckIcon,
   PanelTop,
-  Store,
-  ArrowRight,
 } from 'lucide-react'
 import { apiJson } from '@/lib/api'
 import { useAuthStore } from '@/stores/authStore'
