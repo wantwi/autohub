@@ -31,8 +31,6 @@ const onboardingStatusSchema = z.enum(['pending', 'approved', 'rejected']);
 
 const router = Router();
 
-import { createNotification } from '../../services/notifyInApp.js';
-
 /**
  * Attaches req.technician (row) for the authenticated user.
  */
