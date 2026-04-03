@@ -484,22 +484,30 @@ export function AppShell() {
                 </SidebarSection>
               </>
             ) : (
-              <SidebarSection>
-                <NavItem to="/" icon={Home} label="Home" end />
-                <NavItem to="/search" icon={Search} label="Search parts" />
-                <NavItem to="/dealers" icon={Store} label="Dealers" />
-                <NavItem to="/services" icon={Wrench} label="Services" />
-                {user ? (
-                  <>
-                    <NavItem to="/dashboard" icon={LayoutDashboard} label="Dashboard" />
-                    <NavItem to="/bookings" icon={CalendarClock} label="Bookings" />
-                    <NavItem to="/messages" icon={MessageCircle} label="Messages" badge={chatUnread} />
-                    <NavItem to="/profile" icon={User} label="Profile" />
-                  </>
-                ) : (
-                  <NavItem to="/login" icon={LogIn} label="Sign in" />
+              <>
+                <SidebarSection>
+                  <NavItem to="/" icon={Home} label="Home" end />
+                  <NavItem to="/search" icon={Search} label="Search parts" />
+                  <NavItem to="/dealers" icon={Store} label="Dealers" />
+                  <NavItem to="/services" icon={Wrench} label="Services" />
+                  {user ? (
+                    <>
+                      <NavItem to="/dashboard" icon={LayoutDashboard} label="Dashboard" />
+                      <NavItem to="/bookings" icon={CalendarClock} label="Bookings" />
+                      <NavItem to="/messages" icon={MessageCircle} label="Messages" badge={chatUnread} />
+                      <NavItem to="/profile" icon={User} label="Profile" />
+                    </>
+                  ) : (
+                    <NavItem to="/login" icon={LogIn} label="Sign in" />
+                  )}
+                </SidebarSection>
+                {user?.role === 'buyer' && (
+                  <SidebarSection title="Sell & earn">
+                    <NavItem to="/dealer/register" icon={Store} label="Become a dealer" />
+                    <NavItem to="/technician/register" icon={Wrench} label="Become a technician" />
+                  </SidebarSection>
                 )}
-              </SidebarSection>
+              </>
             )}
           </nav>
         </aside>

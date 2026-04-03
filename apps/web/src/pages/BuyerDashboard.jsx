@@ -1,10 +1,10 @@
 import { Link, Navigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { CalendarClock, Car, MapPin, Search, Store, TrendingUp } from 'lucide-react'
+import { ArrowRight, CalendarClock, Car, MapPin, Search, Store, TrendingUp, Wrench } from 'lucide-react'
 import { apiJson } from '@/lib/api'
 import { normalizeList } from '@/lib/normalize'
 import { useAuthStore } from '@/stores/authStore'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { PartCard } from '@/components/PartCard'
 import { LoadingSpinner } from '@/components/LoadingSpinner'
@@ -51,6 +51,33 @@ export function BuyerDashboard() {
           Manage your garage and discover parts from verified dealers across Ghana.
         </p>
       </div>
+
+      {user?.role === 'buyer' && (
+        <Card className="border-brand-200/60 bg-gradient-to-br from-brand-50/80 to-white shadow-sm dark:border-brand-700/30 dark:from-brand-950/30 dark:to-slate-900">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-lg text-brand-800 dark:text-brand-300">Earn on AutoHub</CardTitle>
+            <CardDescription>
+              Apply to sell parts as a dealer or offer services as a technician — same account you use today.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-3 sm:flex-row">
+            <Button asChild variant="outline" className="flex-1 gap-2 border-brand-200 text-brand-700 hover:bg-brand-50 dark:border-brand-700/40 dark:text-brand-400">
+              <Link to="/dealer/register">
+                <Store className="h-4 w-4" />
+                Become a dealer
+                <ArrowRight className="ml-auto h-3.5 w-3.5" />
+              </Link>
+            </Button>
+            <Button asChild variant="outline" className="flex-1 gap-2 border-brand-200 text-brand-700 hover:bg-brand-50 dark:border-brand-700/40 dark:text-brand-400">
+              <Link to="/technician/register">
+                <Wrench className="h-4 w-4" />
+                Become a technician
+                <ArrowRight className="ml-auto h-3.5 w-3.5" />
+              </Link>
+            </Button>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Stat cards */}
       <div className="grid gap-4 sm:grid-cols-3">
