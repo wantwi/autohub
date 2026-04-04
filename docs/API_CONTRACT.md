@@ -18,6 +18,13 @@
 | POST | `/auth/verify-otp` | `{ "phone": "...", "code": "..." }` | `{ "token", "user" }` (may be nested under `data`) |
 | GET | `/auth/me` | — | current user object |
 
+## Dealers (public)
+
+| Method | Path | Notes |
+|--------|------|--------|
+| GET | `/dealers` | Paginated directory: **approved** dealers with **at least one available part** (`parts.is_available = true`). |
+| GET | `/dealers/:id` | Public shop payload; **404** if dealer is missing, not approved, or has **no** available parts (same rule as directory). |
+
 ## Dealer (authenticated)
 
 | Method | Path | Notes |

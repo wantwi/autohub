@@ -697,17 +697,24 @@ router.patch('/:id/verify', requireAuth, requireRole('admin'), async (req, res, 
   }
 });
 
+const publicDealerVisibilitySql = `d.onboarding_status = 'approved'
+       AND EXISTS (
+         SELECT 1 FROM parts p
+         WHERE p.dealer_id = d.id AND p.is_available = true
+       )`;
+
 router.get('/', async (req, res, next) => {
   try {
     const { page, pageSize, offset } = parsePagination(req.query.page, req.query.pageSize);
     const pool = getPool();
     const countR = await pool.query(
-      `SELECT COUNT(*)::int AS c FROM dealers WHERE onboarding_status = 'approved'`
+      `SELECT COUNT(*)::int AS c FROM dealers d WHERE ${publicDealerVisibilitySql}`
     );
     const total = countR.rows[0].c;
     const { rows } = await pool.query(
-      `SELECT * FROM dealers WHERE onboarding_status = 'approved'
-       ORDER BY is_verified DESC, rating_avg DESC NULLS LAST, created_at DESC
+      `SELECT d.* FROM dealers d
+       WHERE ${publicDealerVisibilitySql}
+       ORDER BY d.is_verified DESC, d.rating_avg DESC NULLS LAST, d.created_at DESC
        LIMIT $1 OFFSET $2`,
       [pageSize, offset]
     );
@@ -723,9 +730,11 @@ router.get('/', async (req, res, next) => {
 router.get('/:id', async (req, res, next) => {
   try {
     const pool = getPool();
-    const { rows: dealers } = await pool.query(`SELECT * FROM dealers WHERE id = $1`, [
-      req.params.id,
-    ]);
+    const { rows: dealers } = await pool.query(
+      `SELECT d.* FROM dealers d
+       WHERE d.id = $1 AND ${publicDealerVisibilitySql}`,
+      [req.params.id]
+    );
     if (!dealers.length) throw new HttpError(404, 'NOT_FOUND', 'Dealer not found');
     const dealer = dealers[0];
     const partsR = await pool.query(
